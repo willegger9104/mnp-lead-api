@@ -1,0 +1,14 @@
+[
+  {
+    "customer_name": "Sarah Johnson",
+    "customer_phone": "970-555-8821",
+    "interest_type": "Student Housing",
+    "timestamp": "4/11/2026, 5:19:38 PM"
+  },
+  {
+    "customer_name": "Marcus Rivera",
+    "customer_phone": "970-555-4492",
+    "interest_type": "Maintenance Request",
+    "timestamp": "4/11/2026, 5:29:27 PM"
+  }
+]
