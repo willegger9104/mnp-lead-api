@@ -375,6 +375,7 @@ app.post('/vapi-webhook', (req, res) => {
 
   // ── Method 2: Tool call (backup) ──
   } else if (msgType === 'tool-calls' && msg.toolCallList) {
+    console.log('FULL TOOL CALL BODY:', JSON.stringify(req.body, null, 2));
     const args = msg.toolCallList[0]?.function?.arguments;
     const params = typeof args === 'string' ? JSON.parse(args) : args;
     customer_name = params?.customer_name;
