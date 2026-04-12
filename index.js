@@ -383,7 +383,7 @@ function sendToMakeCom(data) {
 }
 
 // --- Vapi Lead Intake Webhook ---
-app.post('/vapi-webhook', (req, res) => {
+app.post('/vapi-webhook', async (req, res) => {
   const msg = req.body.message;
   const msgType = msg?.type;
 
