@@ -187,7 +187,7 @@ app.get('/', (req, res) => {
         <div class="kpi-icon">💰</div>
         <div class="kpi-label">Estimated Lead Value</div>
         <div class="kpi-value" id="totalValue">—</div>
-        <div class="kpi-sub">@ $45 per housing lead</div>
+        <div class="kpi-sub">@ $250 per housing lead</div>
       </div>
     </div>
 
@@ -328,7 +328,7 @@ app.get('/', (req, res) => {
           return (t.includes('housing') || t.includes('residential') || t.includes('rental'))
             && !t.includes('maintenance') && !t.includes('emergency');
         });
-        const housingValue = housingLeads.length * 45;
+        const housingValue = housingLeads.length * 250;
 
         const hoursSaved = (total * 15) / 60;
         const isFirstLoad = prevCount === 0;
