@@ -286,11 +286,12 @@ app.get('/', (req, res) => {
             <th>Name</th>
             <th>Phone</th>
             <th>Interest</th>
+            <th>Notes</th>
             <th>Time</th>
           </tr>
         </thead>
         <tbody id="leadsBody">
-          <tr><td colspan="4">
+          <tr><td colspan="5">
             <div class="empty-state">
               <div class="empty-icon">📋</div>
               <p>Loading leads...</p>
@@ -319,7 +320,7 @@ app.get('/', (req, res) => {
 
         const tbody = document.getElementById('leadsBody');
         if (leads.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">📋</div><p>No leads yet — waiting for Vapi...</p></div></td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><p>No leads yet — waiting for Vapi...</p></div></td></tr>';
         } else {
           const isNew = total > prevCount;
           tbody.innerHTML = leads.map((l, i) => {
@@ -329,6 +330,7 @@ app.get('/', (req, res) => {
               '<td class="name-cell">' + l.customer_name + '</td>' +
               '<td class="phone-cell">' + l.customer_phone + '</td>' +
               '<td><span class="badge' + (isEmergency ? ' emergency' : '') + '">' + l.interest_type + '</span></td>' +
+              '<td class="ts notes-cell">' + (l.notes || '—') + '</td>' +
               '<td class="ts">' + (l.timestamp || l.created_at || '—') + '</td>' +
             '</tr>';
           }).join('');
@@ -358,7 +360,7 @@ app.post('/vapi-webhook', (req, res) => {
 
   console.log('Vapi event received:', msgType || 'direct');
 
-  let customer_name, customer_phone, interest_type;
+  let customer_name, customer_phone, interest_type, notes;
 
   // ── Method 1: End-of-call-report with structured data (most reliable) ──
   if (msgType === 'end-of-call-report') {
@@ -367,36 +369,39 @@ app.post('/vapi-webhook', (req, res) => {
       customer_name = structured.customer_name;
       customer_phone = structured.customer_phone;
       interest_type  = structured.interest_type;
-      console.log('Lead from structured data:', { customer_name, customer_phone, interest_type });
+      notes          = structured.notes || '';
+      console.log('Lead from structured data:', { customer_name, customer_phone, interest_type, notes });
     } else {
       console.log('End-of-call-report received but no structured data yet.');
       return res.status(200).json({ received: true });
     }
 
-  // ── Method 2: Tool call (backup) ──
+  // ── Method 2: Tool call ──
   } else if (msgType === 'tool-calls' && msg.toolCallList) {
-    console.log('FULL TOOL CALL BODY:', JSON.stringify(req.body, null, 2));
-    const args = msg.toolCallList[0]?.function?.arguments;
+    const toolCall = msg.toolCallList[0];
+    const args = toolCall?.function?.arguments;
     const params = typeof args === 'string' ? JSON.parse(args) : args;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
     interest_type  = params?.interest_type;
-    console.log('Lead from tool-call:', { customer_name, customer_phone, interest_type });
+    notes          = params?.notes || '';
+    console.log('Lead from tool-call:', { customer_name, customer_phone, interest_type, notes });
 
   } else if (msgType === 'function-call' && msg.functionCall) {
     const params = msg.functionCall.parameters;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
     interest_type  = params?.interest_type;
+    notes          = params?.notes || '';
 
   // ── Method 3: Direct POST (manual tests) ──
   } else if (!msgType) {
     customer_name = req.body.customer_name;
     customer_phone = req.body.customer_phone;
     interest_type  = req.body.interest_type;
+    notes          = req.body.notes || '';
 
   } else {
-    // All other Vapi events — just acknowledge
     return res.status(200).json({ received: true });
   }
 
@@ -404,7 +409,17 @@ app.post('/vapi-webhook', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
   }
 
+  // Emergency check — save the lead AND return emergency number
   if (interest_type.toLowerCase().includes('emergency')) {
+    const leads = loadLeads();
+    leads.push({
+      customer_name,
+      customer_phone,
+      interest_type,
+      notes: notes || 'EMERGENCY — directed to 970-221-2323',
+      timestamp: new Date().toLocaleString('en-US', { timeZone: 'America/Denver' })
+    });
+    saveLeads(leads);
     return res.status(200).json({ message: 'Directing to MnP Emergency Line: 970-221-2323' });
   }
 
@@ -413,6 +428,7 @@ app.post('/vapi-webhook', (req, res) => {
     customer_name,
     customer_phone,
     interest_type,
+    notes,
     timestamp: new Date().toLocaleString('en-US', { timeZone: 'America/Denver' })
   });
   saveLeads(leads);
