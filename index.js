@@ -288,11 +288,20 @@ app.get('/', (req, res) => {
       });
     }
 
+    function normalizeType(raw) {
+      const t = (raw || '').toLowerCase();
+      if (t.includes('emergency'))   return 'Emergency';
+      if (t.includes('maintenance')) return 'Maintenance Request';
+      if (t.includes('student') || t.includes('housing')) return 'Student Housing';
+      if (t.includes('residential') || t.includes('rental')) return 'Residential Rental';
+      return raw;
+    }
+
     function updateCharts(leads) {
       // Donut — interest type breakdown
       const typeCounts = {};
       leads.forEach(l => {
-        const t = l.interest_type || 'Unknown';
+        const t = normalizeType(l.interest_type);
         typeCounts[t] = (typeCounts[t] || 0) + 1;
       });
       buildDonut(Object.keys(typeCounts), Object.values(typeCounts));
@@ -445,10 +454,19 @@ app.post('/vapi-webhook', async (req, res) => {
   }
 
   const isEmergency = interest_type.toLowerCase().includes('emergency');
+
+  // Normalize interest type into clean categories
+  const t = interest_type.toLowerCase();
+  let normalizedType = interest_type;
+  if (isEmergency)                                          normalizedType = 'Emergency';
+  else if (t.includes('maintenance'))                       normalizedType = 'Maintenance Request';
+  else if (t.includes('student') || t.includes('housing')) normalizedType = 'Student Housing';
+  else if (t.includes('residential') || t.includes('rental')) normalizedType = 'Residential Rental';
+
   const leadData = {
     customer_name,
     customer_phone,
-    interest_type,
+    interest_type: normalizedType,
     notes: isEmergency ? (notes || 'EMERGENCY — directed to 970-221-2323') : (notes || ''),
   };
 
