@@ -1,26 +1,23 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
-const LEADS_FILE = path.join(__dirname, 'leads.json');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
 app.use(express.json());
 
-function loadLeads() {
-  if (!fs.existsSync(LEADS_FILE)) return [];
-  try { return JSON.parse(fs.readFileSync(LEADS_FILE, 'utf8')); }
-  catch { return []; }
-}
-
-function saveLeads(leads) {
-  fs.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2));
-}
-
 // --- API endpoint for dashboard to fetch leads as JSON ---
-app.get('/api/leads', (req, res) => {
-  const leads = loadLeads();
-  res.json({ total: leads.length, leads: leads.slice().reverse() });
+app.get('/api/leads', async (req, res) => {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ total: data.length, leads: data });
 });
 
 app.get('/', (req, res) => {
@@ -361,7 +358,7 @@ app.get('/', (req, res) => {
               '<td class="phone-cell">' + l.customer_phone + '</td>' +
               '<td><span class="badge' + (isEmergency ? ' emergency' : '') + '" title="' + l.interest_type + '">' + l.interest_type + '</span></td>' +
               '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
-              '<td class="ts">' + (l.timestamp || l.created_at || '—') + '</td>' +
+              '<td class="ts">' + (l.created_at ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—') + '</td>' +
             '</tr>';
           }).join('');
         }
@@ -441,32 +438,24 @@ app.post('/vapi-webhook', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
   }
 
-  // Emergency check — save the lead AND return emergency number
-  if (interest_type.toLowerCase().includes('emergency')) {
-    const leads = loadLeads();
-    leads.push({
-      customer_name,
-      customer_phone,
-      interest_type,
-      notes: notes || 'EMERGENCY — directed to 970-221-2323',
-      timestamp: new Date().toLocaleString('en-US', { timeZone: 'America/Denver' })
-    });
-    saveLeads(leads);
-    return res.status(200).json({ message: 'Directing to MnP Emergency Line: 970-221-2323' });
-  }
-
-  const leads = loadLeads();
-  leads.push({
+  const isEmergency = interest_type.toLowerCase().includes('emergency');
+  const leadData = {
     customer_name,
     customer_phone,
     interest_type,
-    notes,
-    timestamp: new Date().toLocaleString('en-US', { timeZone: 'America/Denver' })
-  });
-  saveLeads(leads);
-  sendToMakeCom({ customer_name, customer_phone, interest_type });
+    notes: isEmergency ? (notes || 'EMERGENCY — directed to 970-221-2323') : (notes || ''),
+  };
 
-  return res.status(200).json({ message: 'Lead received', lead: { customer_name, customer_phone, interest_type } });
+  const { error } = await supabase.from('leads').insert([leadData]);
+  if (error) console.error('Supabase insert error:', error.message);
+
+  sendToMakeCom(leadData);
+
+  if (isEmergency) {
+    return res.status(200).json({ message: 'Directing to MnP Emergency Line: 970-221-2323' });
+  }
+
+  return res.status(200).json({ message: 'Lead received', lead: leadData });
 });
 
 app.listen(PORT, () => {
