@@ -105,7 +105,7 @@ app.get('/', (req, res) => {
     }
     .badge-housing    { background: rgba(212,175,55,0.15); border-color: rgba(212,175,55,0.4); color: #d4af37; }
     .badge-residential{ background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #90caf9; }
-    .badge-maintenance{ background: rgba(255,167,38,0.15); border-color: rgba(255,167,38,0.4); color: #ffcc80; }
+    .badge-maintenance{ background: rgba(239,154,154,0.15); border-color: rgba(239,154,154,0.4); color: #ef9a9a; }
     .badge-emergency  { background: rgba(183,28,28,0.3); border-color: rgba(244,67,54,0.4); color: #ef9a9a; }
     .empty-state { text-align: center; padding: 60px 20px; color: #3d6050; }
     .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
