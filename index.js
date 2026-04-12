@@ -100,11 +100,13 @@ app.get('/', (req, res) => {
     .notes-cell { color: #607d6e; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
     .ts { color: #3d6050; font-size: 0.75rem; }
     .badge {
-      display: inline-block; background: rgba(0,77,64,0.5); border: 1px solid rgba(0,150,136,0.3);
-      color: #80cbc4; padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 500;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+      display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; border-width: 1px; border-style: solid;
     }
-    .badge.emergency { background: rgba(183,28,28,0.3); border-color: rgba(244,67,54,0.4); color: #ef9a9a; }
+    .badge-housing    { background: rgba(212,175,55,0.15); border-color: rgba(212,175,55,0.4); color: #d4af37; }
+    .badge-residential{ background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #90caf9; }
+    .badge-maintenance{ background: rgba(255,167,38,0.15); border-color: rgba(255,167,38,0.4); color: #ffcc80; }
+    .badge-emergency  { background: rgba(183,28,28,0.3); border-color: rgba(244,67,54,0.4); color: #ef9a9a; }
     .empty-state { text-align: center; padding: 60px 20px; color: #3d6050; }
     .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
     @keyframes newRow { from { background: rgba(212,175,55,0.08); } to { background: transparent; } }
@@ -350,13 +352,17 @@ app.get('/', (req, res) => {
         } else {
           const isNew = total > prevCount;
           tbody.innerHTML = leads.map((l, i) => {
-            const isEmergency = l.interest_type?.toLowerCase().includes('emergency');
+            const t = (l.interest_type || '').toLowerCase();
+            let badgeClass = 'badge-housing';
+            if (t.includes('maintenance')) badgeClass = 'badge-maintenance';
+            else if (t.includes('emergency'))  badgeClass = 'badge-emergency';
+            else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
             const rowClass = (isNew && i === 0) ? 'new-row' : '';
             const notes = l.notes || '—';
             return '<tr class="' + rowClass + '">' +
               '<td class="name-cell" title="' + l.customer_name + '">' + l.customer_name + '</td>' +
               '<td class="phone-cell">' + l.customer_phone + '</td>' +
-              '<td><span class="badge' + (isEmergency ? ' emergency' : '') + '" title="' + l.interest_type + '">' + l.interest_type + '</span></td>' +
+              '<td><span class="badge ' + badgeClass + '" title="' + l.interest_type + '">' + l.interest_type + '</span></td>' +
               '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
               '<td class="ts">' + (l.created_at ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—') + '</td>' +
             '</tr>';
