@@ -357,33 +357,47 @@ app.post('/vapi-webhook', (req, res) => {
   const msgType = msg?.type;
 
   console.log('Vapi event received:', msgType || 'direct');
-  console.log('Full body:', JSON.stringify(req.body, null, 2));
-
-  // Acknowledge all Vapi system events except tool calls
-  if (msgType && !['tool-calls', 'function-call'].includes(msgType)) {
-    return res.status(200).json({ received: true });
-  }
 
   let customer_name, customer_phone, interest_type;
 
-  if (msgType === 'tool-calls' && msg.toolCallList) {
+  // ── Method 1: End-of-call-report with structured data (most reliable) ──
+  if (msgType === 'end-of-call-report') {
+    const structured = msg?.analysis?.structuredData;
+    if (structured?.customer_name && structured?.customer_phone && structured?.interest_type) {
+      customer_name = structured.customer_name;
+      customer_phone = structured.customer_phone;
+      interest_type  = structured.interest_type;
+      console.log('Lead from structured data:', { customer_name, customer_phone, interest_type });
+    } else {
+      console.log('End-of-call-report received but no structured data yet.');
+      return res.status(200).json({ received: true });
+    }
+
+  // ── Method 2: Tool call (backup) ──
+  } else if (msgType === 'tool-calls' && msg.toolCallList) {
     const args = msg.toolCallList[0]?.function?.arguments;
     const params = typeof args === 'string' ? JSON.parse(args) : args;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
     interest_type  = params?.interest_type;
+    console.log('Lead from tool-call:', { customer_name, customer_phone, interest_type });
+
   } else if (msgType === 'function-call' && msg.functionCall) {
     const params = msg.functionCall.parameters;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
     interest_type  = params?.interest_type;
-  } else {
+
+  // ── Method 3: Direct POST (manual tests) ──
+  } else if (!msgType) {
     customer_name = req.body.customer_name;
     customer_phone = req.body.customer_phone;
     interest_type  = req.body.interest_type;
-  }
 
-  console.log('Parsed lead:', { customer_name, customer_phone, interest_type });
+  } else {
+    // All other Vapi events — just acknowledge
+    return res.status(200).json({ received: true });
+  }
 
   if (!customer_name || !customer_phone || !interest_type) {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
