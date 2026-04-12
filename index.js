@@ -113,6 +113,16 @@ app.get('/', (req, res) => {
     @keyframes newRow { from { background: rgba(212,175,55,0.08); } to { background: transparent; } }
     .new-row td { animation: newRow 2s ease-out; }
 
+    /* ── Phone Banner ── */
+    .phone-banner {
+      background: linear-gradient(90deg, rgba(212,175,55,0.08), rgba(212,175,55,0.04));
+      border-bottom: 1px solid rgba(212,175,55,0.15);
+      padding: 9px 48px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-size: 0.78rem; color: #7ab89a; letter-spacing: 0.3px;
+    }
+    .phone-banner strong { color: #d4af37; font-weight: 700; letter-spacing: 0.5px; }
+
     /* ── Analytics ── */
     .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 32px; }
     .chart-card {
@@ -124,8 +134,12 @@ app.get('/', (req, res) => {
     .chart-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #5a8a74; font-weight: 700; margin-bottom: 20px; }
     .chart-container { position: relative; height: 220px; }
 
+    /* ── Count-up animation ── */
+    .kpi-value { transition: color 0.3s; }
+
     @media (max-width: 768px) {
       header { padding: 14px 20px; }
+      .phone-banner { padding: 8px 20px; font-size: 0.7rem; }
       main { padding: 24px 20px 60px; }
       .kpi-grid, .analytics-grid { grid-template-columns: 1fr; gap: 12px; }
       col.col-notes { width: 0; display: none; }
@@ -135,10 +149,10 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <div class="brand">
-      <div class="brand-icon">🏔</div>
+      <div class="brand-icon" style="font-size:1.3rem;font-weight:900;color:#003d32;letter-spacing:-1px">M</div>
       <div style="display:flex;flex-direction:column">
         <div class="brand-name">Mountain-n-Plains</div>
-        <div class="brand-sub">AI Pilot Command Center</div>
+        <div class="brand-sub">Intelligent Leasing · Zero Missed Calls</div>
       </div>
     </div>
     <div class="header-right">
@@ -146,6 +160,11 @@ app.get('/', (req, res) => {
       <div class="status-pill"><span class="dot"></span>System Online &nbsp;|&nbsp; 24/7 Coverage Active</div>
     </div>
   </header>
+  <div class="phone-banner">
+    <span>Callers reach Sarah 24/7 at</span>
+    <strong>📞 (970) 221-2323</strong>
+    <span>— powered by Vapi Voice AI</span>
+  </div>
 
   <main>
     <div class="kpi-grid">
@@ -158,9 +177,10 @@ app.get('/', (req, res) => {
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
-        <div class="kpi-icon">🟢</div>
-        <div class="kpi-label">Current Status</div>
-        <div class="kpi-status-value">System Online<br/>24/7 Weekend Coverage Active</div>
+        <div class="kpi-icon">⏱</div>
+        <div class="kpi-label">Est. Staff Hours Saved</div>
+        <div class="kpi-value" id="hoursSaved">—</div>
+        <div class="kpi-sub">@ 15 min per lead handled</div>
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
@@ -210,10 +230,19 @@ app.get('/', (req, res) => {
     let prevCount = 0;
     let donutChart, barChart;
 
-    const CHART_DEFAULTS = {
-      color: '#5a8a74',
-      borderColor: 'rgba(255,255,255,0.04)',
-    };
+    function countUp(el, target, prefix, suffix, decimals) {
+      const duration = 800;
+      const start = performance.now();
+      const from = 0;
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const value = from + (target - from) * ease;
+        el.textContent = (prefix || '') + value.toLocaleString('en-US', { minimumFractionDigits: decimals || 0, maximumFractionDigits: decimals || 0 }) + (suffix || '');
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
 
     function buildDonut(labels, values) {
       const colors = ['#d4af37','#80cbc4','#ef9a9a','#a5d6a7','#7986cb','#ffb74d'];
@@ -301,8 +330,19 @@ app.get('/', (req, res) => {
         });
         const housingValue = housingLeads.length * 45;
 
-        document.getElementById('totalLeads').textContent = total;
-        document.getElementById('totalValue').textContent = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
+        const hoursSaved = (total * 15) / 60;
+        const isFirstLoad = prevCount === 0;
+
+        if (isFirstLoad) {
+          countUp(document.getElementById('totalLeads'), total, '', '', 0);
+          countUp(document.getElementById('totalValue'), housingValue, '$', '', 2);
+          countUp(document.getElementById('hoursSaved'), hoursSaved, '', ' hrs', 1);
+        } else {
+          document.getElementById('totalLeads').textContent = total;
+          document.getElementById('totalValue').textContent = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
+          document.getElementById('hoursSaved').textContent = hoursSaved.toFixed(1) + ' hrs';
+        }
+
         document.getElementById('leadCount').textContent = total + ' total';
         const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         document.getElementById('lastUpdated').textContent = 'Updated ' + now;
