@@ -257,19 +257,26 @@ function sendToMakeCom(data) {
 
 // --- Vapi Lead Intake Webhook ---
 app.post('/vapi-webhook', (req, res) => {
-  console.log('Incoming request body:', JSON.stringify(req.body, null, 2));
+  const msg = req.body.message;
+  const msgType = msg?.type;
+
+  console.log('Vapi event received:', msgType || 'direct', JSON.stringify(req.body, null, 2));
+
+  // Ignore Vapi system events — just acknowledge them
+  if (msgType && !['tool-calls', 'function-call'].includes(msgType)) {
+    return res.status(200).json({ received: true });
+  }
 
   let customer_name, customer_phone, interest_type;
 
   // Handle Vapi's tool-call format
-  const msg = req.body.message;
-  if (msg && msg.type === 'tool-calls' && msg.toolCallList) {
+  if (msgType === 'tool-calls' && msg.toolCallList) {
     const args = msg.toolCallList[0]?.function?.arguments;
     const params = typeof args === 'string' ? JSON.parse(args) : args;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
     interest_type  = params?.interest_type;
-  } else if (msg && msg.type === 'function-call' && msg.functionCall) {
+  } else if (msgType === 'function-call' && msg.functionCall) {
     const params = msg.functionCall.parameters;
     customer_name = params?.customer_name;
     customer_phone = params?.customer_phone;
