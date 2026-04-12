@@ -167,7 +167,7 @@ app.get('/', (req, res) => {
         <div class="kpi-icon">💰</div>
         <div class="kpi-label">Estimated Lead Value</div>
         <div class="kpi-value" id="totalValue">—</div>
-        <div class="kpi-sub">@ $45 per qualified lead</div>
+        <div class="kpi-sub">@ $45 per housing lead</div>
       </div>
     </div>
 
@@ -293,8 +293,16 @@ app.get('/', (req, res) => {
         const data = await res.json();
         const { total, leads } = data;
 
+        // Only count housing leads for value (exclude maintenance & emergency)
+        const housingLeads = leads.filter(l => {
+          const t = (l.interest_type || '').toLowerCase();
+          return (t.includes('housing') || t.includes('residential') || t.includes('rental'))
+            && !t.includes('maintenance') && !t.includes('emergency');
+        });
+        const housingValue = housingLeads.length * 45;
+
         document.getElementById('totalLeads').textContent = total;
-        document.getElementById('totalValue').textContent = '$' + (total * 45).toLocaleString('en-US', { minimumFractionDigits: 2 });
+        document.getElementById('totalValue').textContent = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
         document.getElementById('leadCount').textContent = total + ' total';
         const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         document.getElementById('lastUpdated').textContent = 'Updated ' + now;
