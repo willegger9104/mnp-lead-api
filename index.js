@@ -257,7 +257,29 @@ function sendToMakeCom(data) {
 
 // --- Vapi Lead Intake Webhook ---
 app.post('/vapi-webhook', (req, res) => {
-  const { customer_name, customer_phone, interest_type } = req.body;
+  console.log('Incoming request body:', JSON.stringify(req.body, null, 2));
+
+  let customer_name, customer_phone, interest_type;
+
+  // Handle Vapi's tool-call format
+  const msg = req.body.message;
+  if (msg && msg.type === 'tool-calls' && msg.toolCallList) {
+    const args = msg.toolCallList[0]?.function?.arguments;
+    const params = typeof args === 'string' ? JSON.parse(args) : args;
+    customer_name = params?.customer_name;
+    customer_phone = params?.customer_phone;
+    interest_type  = params?.interest_type;
+  } else if (msg && msg.type === 'function-call' && msg.functionCall) {
+    const params = msg.functionCall.parameters;
+    customer_name = params?.customer_name;
+    customer_phone = params?.customer_phone;
+    interest_type  = params?.interest_type;
+  } else {
+    // Direct format (manual tests)
+    customer_name = req.body.customer_name;
+    customer_phone = req.body.customer_phone;
+    interest_type  = req.body.interest_type;
+  }
 
   if (!customer_name || !customer_phone || !interest_type) {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
