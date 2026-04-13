@@ -201,20 +201,19 @@ function buildDashboard(cfg) {
 
     let donutChart, barChart;
 
-    function getCategoryColor(label) {
-      const t = (label || '').toLowerCase();
-      if (t.includes('emergency') || t.includes('tow'))          return '#ef5350';
-      if (t.includes('maintenance') || t.includes('inspection') || t.includes('insurance')) return '#ef9a9a';
-      if (t.includes('new') || t.includes('install') || t.includes('color') || t.includes('heating') || t.includes('booking')) return '#d4af37';
-      return '#90caf9';
-    }
+    const BADGE_COLORS = {
+      'badge-housing':     '#d4af37',
+      'badge-residential': '#90caf9',
+      'badge-maintenance': '#ef9a9a',
+      'badge-emergency':   '#ef5350',
+    };
 
     function getBadgeClass(type) {
-      const t = (type || '').toLowerCase();
-      if (t.includes('emergency') || t.includes('tow'))           return 'badge-emergency';
-      if (t.includes('maintenance') || t.includes('inspection') || t.includes('insurance') || t.includes('product')) return 'badge-maintenance';
-      if (t.includes('new') || t.includes('install') || t.includes('color') || t.includes('heating') || t.includes('booking')) return 'badge-housing';
-      return 'badge-residential';
+      return BADGES[type] || 'badge-residential';
+    }
+
+    function getCategoryColor(label) {
+      return BADGE_COLORS[getBadgeClass(label)] || '#90caf9';
     }
 
     function setFitValue(id, text) {

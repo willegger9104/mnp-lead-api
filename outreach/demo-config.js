@@ -112,7 +112,7 @@ const DEMOS = {
       'New Client':           'badge-housing',
       'Appointment Request':  'badge-residential',
       'Color Service':        'badge-maintenance',
-      'Product Inquiry':      'badge-emergency',
+      'Product Inquiry':      'badge-residential',
     },
     leads: [
       { name: 'Taylor Brooks',  phone: '970-555-3821', type: 'New Client',          notes: 'Looking for a new stylist, wants balayage consultation.',  date: '2026-04-05T19:45:00Z' },
