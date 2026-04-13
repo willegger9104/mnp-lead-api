@@ -499,6 +499,12 @@ app.post('/vapi-webhook', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
   }
 
+  // Normalize phone to XXX-XXX-XXXX format
+  const digits = customer_phone.replace(/\D/g, '').replace(/^1(\d{10})$/, '$1');
+  if (digits.length === 10) {
+    customer_phone = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6);
+  }
+
   const isEmergency = interest_type.toLowerCase().includes('emergency');
 
   // Normalize interest type into clean categories
