@@ -134,7 +134,7 @@ app.get('/', (req, res) => {
     .chart-container { position: relative; height: 220px; }
 
     /* ── Count-up animation ── */
-    .kpi-value { transition: color 0.3s; }
+    .kpi-value { transition: color 0.3s, font-size 0.3s; }
 
     @media (max-width: 768px) {
       header { padding: 14px 20px; }
@@ -179,17 +179,17 @@ app.get('/', (req, res) => {
     <div class="kpi-grid">
       <div class="kpi">
         <div class="kpi-accent"></div>
-        <div class="kpi-icon">📞</div>
-        <div class="kpi-label">Total Leads Captured</div>
-        <div class="kpi-value" id="totalLeads">—</div>
-        <div class="kpi-sub">via Sarah voice AI</div>
+        <div class="kpi-icon">🏠</div>
+        <div class="kpi-label">Leasing Leads</div>
+        <div class="kpi-value" id="leasingLeads">—</div>
+        <div class="kpi-sub">housing &amp; residential inquiries</div>
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
-        <div class="kpi-icon">⏱</div>
-        <div class="kpi-label">Est. Staff Hours Saved</div>
-        <div class="kpi-value" id="hoursSaved">—</div>
-        <div class="kpi-sub">@ 15 min per lead handled</div>
+        <div class="kpi-icon">🔧</div>
+        <div class="kpi-label">Maintenance Calls Handled</div>
+        <div class="kpi-value" id="maintenanceCalls">—</div>
+        <div class="kpi-sub">routed without staff involvement</div>
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
@@ -201,7 +201,7 @@ app.get('/', (req, res) => {
       <div class="kpi">
         <div class="kpi-accent"></div>
         <div class="kpi-icon">🌙</div>
-        <div class="kpi-label">After-Hours Leads</div>
+        <div class="kpi-label">After-Hours Handled</div>
         <div class="kpi-value" id="afterHours">—</div>
         <div class="kpi-sub">captured outside 9am–5pm</div>
       </div>
@@ -248,6 +248,17 @@ app.get('/', (req, res) => {
   <script>
     let prevCount = 0;
     let donutChart, barChart;
+
+    function setFitValue(id, text) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      const len = text.length;
+      if      (len >= 13) el.style.fontSize = '1.3rem';
+      else if (len >= 11) el.style.fontSize = '1.6rem';
+      else if (len >= 9)  el.style.fontSize = '2rem';
+      else if (len >= 7)  el.style.fontSize = '2.5rem';
+      else                el.style.fontSize = '';
+    }
 
     function countUp(el, target, prefix, suffix, decimals) {
       const duration = 800;
@@ -376,8 +387,9 @@ app.get('/', (req, res) => {
         });
         const housingValue = housingLeads.length * 250;
 
-        const hoursSaved = (total * 15) / 60;
-        const afterHoursLeads = leads.filter(l => {
+        const leasingCount = housingLeads.length;
+        const maintenanceCount = leads.filter(l => (l.interest_type || '').toLowerCase().includes('maintenance')).length;
+        const afterHoursCount = leads.filter(l => {
           const ts = l.created_at || l.timestamp;
           if (!ts) return false;
           const hour = parseInt(new Date(ts).toLocaleString('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }));
@@ -385,16 +397,17 @@ app.get('/', (req, res) => {
         }).length;
         const isFirstLoad = prevCount === 0;
 
+        const valueText = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
+        setFitValue('totalValue', valueText);
+
         if (isFirstLoad) {
-          countUp(document.getElementById('totalLeads'), total, '', '', 0);
-          countUp(document.getElementById('totalValue'), housingValue, '$', '', 2);
-          countUp(document.getElementById('hoursSaved'), hoursSaved, '', ' hrs', 1);
-          countUp(document.getElementById('afterHours'), afterHoursLeads, '', '', 0);
+          countUp(document.getElementById('leasingLeads'), leasingCount, '', '', 0);
+          countUp(document.getElementById('maintenanceCalls'), maintenanceCount, '', '', 0);
+          countUp(document.getElementById('afterHours'), afterHoursCount, '', '', 0);
         } else {
-          document.getElementById('totalLeads').textContent = total;
-          document.getElementById('totalValue').textContent = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
-          document.getElementById('hoursSaved').textContent = hoursSaved.toFixed(1) + ' hrs';
-          document.getElementById('afterHours').textContent = afterHoursLeads;
+          document.getElementById('leasingLeads').textContent = leasingCount;
+          document.getElementById('maintenanceCalls').textContent = maintenanceCount;
+          document.getElementById('afterHours').textContent = afterHoursCount;
         }
 
         document.getElementById('leadCount').textContent = total + ' total';
