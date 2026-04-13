@@ -53,7 +53,7 @@ The issue I keep hearing from ${campaign.industry.toLowerCase()} companies is ${
 
 I built this for a property management company in Northern Colorado and it's been running live. You can see the live dashboard here:
 
-👉 ${config.demoUrl}
+👉 ${config.demoUrl}/demo/${campaign.demoSlug}
 
 Setup takes about a week. It runs for $250/month after a one-time setup fee. No long-term contract.
 

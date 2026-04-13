@@ -1,5 +1,8 @@
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const { buildDashboard } = require('./outreach/build-dashboard');
+const DEMOS = require('./outreach/demo-config');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -545,6 +548,15 @@ app.post('/vapi-webhook', async (req, res) => {
   }
 
   return res.status(200).json({ message: 'Lead received', lead: leadData });
+});
+
+// ── Industry Demo Routes ──────────────────────────────────────────────────────
+['property', 'hvac', 'dental', 'salon', 'auto', 'plumbing'].forEach(slug => {
+  app.get(`/demo/${slug}`, (req, res) => {
+    const cfg = DEMOS[slug];
+    if (!cfg) return res.status(404).send('Demo not found');
+    res.send(buildDashboard(cfg));
+  });
 });
 
 app.listen(PORT, () => {

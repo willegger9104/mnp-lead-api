@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Voice Agent — Pitch Sheet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #fff; color: #1a1a1a; width: 816px; margin: 0 auto; padding: 48px; }
+
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 3px solid #003d32; }
+    .header-left h1 { font-size: 2rem; font-weight: 900; color: #003d32; line-height: 1.1; }
+    .header-left h1 span { color: #d4af37; }
+    .header-left p { font-size: 0.85rem; color: #555; margin-top: 6px; max-width: 380px; }
+    .header-right { text-align: right; }
+    .header-right .tag { background: #003d32; color: #d4af37; font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; }
+    .header-right .contact { font-size: 0.75rem; color: #888; margin-top: 10px; line-height: 1.8; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat { background: #f7f9f8; border: 1px solid #e0ebe6; border-radius: 10px; padding: 16px 12px; text-align: center; }
+    .stat-value { font-size: 1.6rem; font-weight: 900; color: #003d32; line-height: 1; }
+    .stat-value span { color: #d4af37; }
+    .stat-label { font-size: 0.62rem; color: #888; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 5px; font-weight: 600; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    .card { background: #f7f9f8; border: 1px solid #e0ebe6; border-radius: 12px; padding: 20px; }
+    .card h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #d4af37; font-weight: 700; margin-bottom: 14px; }
+    .card ul { list-style: none; }
+    .card ul li { font-size: 0.82rem; color: #333; padding: 5px 0; border-bottom: 1px solid #edf2ef; display: flex; align-items: flex-start; gap: 8px; }
+    .card ul li:last-child { border-bottom: none; }
+    .card ul li::before { content: '✓'; color: #003d32; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    .roi-box { background: #003d32; border-radius: 12px; padding: 22px 24px; margin-bottom: 24px; }
+    .roi-box h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #7ab89a; font-weight: 700; margin-bottom: 14px; }
+    .roi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .roi-item { text-align: center; }
+    .roi-item .roi-val { font-size: 1.3rem; font-weight: 800; color: #d4af37; }
+    .roi-item .roi-label { font-size: 0.65rem; color: #7ab89a; margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+
+    .compare-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 0.8rem; }
+    .compare-table th { background: #003d32; color: #d4af37; padding: 10px 14px; text-align: left; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1.5px; }
+    .compare-table td { padding: 10px 14px; border-bottom: 1px solid #edf2ef; color: #333; }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table .highlight td { background: #f0f8f4; font-weight: 600; color: #003d32; }
+    .compare-table .highlight td:first-child { border-left: 3px solid #d4af37; }
+    .check { color: #003d32; font-weight: 700; }
+    .cross { color: #ccc; }
+
+    .pricing-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .price-card { border: 2px solid #e0ebe6; border-radius: 12px; padding: 20px; text-align: center; }
+    .price-card.featured { border-color: #d4af37; background: #fffdf0; }
+    .price-card .price-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 2px; color: #888; font-weight: 700; margin-bottom: 8px; }
+    .price-card .price-main { font-size: 2rem; font-weight: 900; color: #003d32; }
+    .price-card .price-sub { font-size: 0.72rem; color: #888; margin-top: 4px; }
+    .price-card .price-includes { font-size: 0.75rem; color: #555; margin-top: 12px; line-height: 1.8; text-align: left; }
+
+    .footer { border-top: 2px solid #003d32; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .footer p { font-size: 0.68rem; color: #999; }
+    .footer .cta { background: #003d32; color: #d4af37; font-size: 0.72rem; font-weight: 700; padding: 8px 20px; border-radius: 6px; text-decoration: none; letter-spacing: 0.5px; }
+
+    @media print {
+      body { padding: 32px; }
+      .cta { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Your Calls. <span>Answered.</span><br>Every Time.</h1>
+      <p>AI-powered voice agent that captures leads, handles maintenance intake, and routes emergencies — 24 hours a day, 7 days a week. No staff required.</p>
+    </div>
+    <div class="header-right">
+      <div class="tag">AI Voice Agent</div>
+      <div class="contact">
+        Built by Will Egger<br>
+        Fort Collins, CO<br>
+        AI Pilot v1.0
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-value">400<span>+</span></div>
+      <div class="stat-label">Calls / Month<br>avg NoCo PM company</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">67<span>%</span></div>
+      <div class="stat-label">Emergencies happen<br>after hours</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">78<span>%</span></div>
+      <div class="stat-label">Renters sign with<br>first to respond</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value"><span>$</span>1,800</div>
+      <div class="stat-label">Lost rent per missed<br>lead (1 month vacancy)</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>What Sarah Does</h3>
+      <ul>
+        <li>Answers every call in under 3 seconds, 24/7</li>
+        <li>Collects caller name, phone, and interest type</li>
+        <li>Qualifies leasing leads vs. maintenance requests</li>
+        <li>Routes emergencies to your 24/7 line instantly</li>
+        <li>Logs every lead to a live dashboard in real time</li>
+        <li>Confirms follow-up timeline to every caller</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What You Get</h3>
+      <ul>
+        <li>Live dashboard — leads visible the moment they call</li>
+        <li>Lead categorized by type: housing, rental, maintenance</li>
+        <li>After-hours coverage with zero extra staffing cost</li>
+        <li>Color-coded analytics by interest type and date</li>
+        <li>Estimated lead value tracked automatically</li>
+        <li>Full setup, configuration, and ongoing support</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="roi-box">
+    <h3>The ROI — Fort Collins Property Management</h3>
+    <div class="roi-grid">
+      <div class="roi-item">
+        <div class="roi-val">1 lead</div>
+        <div class="roi-label">captured per month<br>pays for Sarah 6x over</div>
+      </div>
+      <div class="roi-item">
+        <div class="roi-val">$1,800</div>
+        <div class="roi-label">avg cost of one missed lead<br>(2-week vacancy delay)</div>
+      </div>
+      <div class="roi-item">
+        <div class="roi-val">$250/mo</div>
+        <div class="roi-label">total cost vs $2,500+/mo<br>for in-house receptionist</div>
+      </div>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>Solution</th><th>Monthly Cost</th><th>After-Hours</th><th>Lead Capture</th><th>Live Dashboard</th><th>Emergency Routing</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>In-house receptionist</td><td>$2,500–$3,750</td><td class="cross">✗ No</td><td class="cross">✗ No</td><td class="cross">✗ No</td><td class="cross">✗ No</td></tr>
+      <tr><td>Basic answering service</td><td>$200–$600</td><td class="check">✓ Yes</td><td class="cross">✗ No</td><td class="cross">✗ No</td><td class="cross">✗ No</td></tr>
+      <tr class="highlight"><td>Sarah — AI Voice Agent</td><td>$250/mo + setup</td><td class="check">✓ 24/7</td><td class="check">✓ Yes</td><td class="check">✓ Yes</td><td class="check">✓ Yes</td></tr>
+    </tbody>
+  </table>
+
+  <div class="pricing-row">
+    <div class="price-card">
+      <div class="price-label">One-Time Setup</div>
+      <div class="price-main">$1,000</div>
+      <div class="price-sub">Full configuration, no recurring surprise fees</div>
+      <div class="price-includes">
+        ✓ Custom AI voice agent (Sarah)<br>
+        ✓ Branded live dashboard<br>
+        ✓ Vapi phone number connected<br>
+        ✓ Interest type routing configured<br>
+        ✓ Emergency line integrated<br>
+        ✓ Full testing before go-live
+      </div>
+    </div>
+    <div class="price-card featured">
+      <div class="price-label">Monthly Retainer</div>
+      <div class="price-main">$250</div>
+      <div class="price-sub">Cancel anytime — no long-term contract required</div>
+      <div class="price-includes">
+        ✓ 24/7 uptime monitoring<br>
+        ✓ Dashboard access & updates<br>
+        ✓ Ongoing call handling<br>
+        ✓ Monthly performance summary<br>
+        ✓ Script updates as needed<br>
+        ✓ Direct support line
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Built locally in Fort Collins, CO · Powered by Vapi Voice AI + Supabase · Will Egger</p>
+    <span class="cta">Schedule a Live Demo</span>
+  </div>
+
+</body>
+</html>

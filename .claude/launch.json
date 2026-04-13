@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "MnP Lead API",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["index.js"],
+      "port": 3000
+    },
+    {
+      "name": "Pitch Docs",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/serve-docs.js"],
+      "port": 3001
+    }
+  ]
+}

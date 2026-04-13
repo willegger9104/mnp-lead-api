@@ -25,33 +25,45 @@ const CONFIG = {
 const CAMPAIGNS = [
   {
     industry:    'Property Management',
+    demoSlug:    'property',
     queries:     ['property management company', 'property manager'],
     painPoint:   'missed after-hours rental inquiries',
     valueLine:   'One missed housing lead is a month of lost rent.',
   },
   {
     industry:    'HVAC',
+    demoSlug:    'hvac',
     queries:     ['HVAC company', 'heating and cooling', 'air conditioning repair'],
     painPoint:   'emergency calls going to voicemail after hours',
     valueLine:   'One missed emergency call is a $500+ job going to your competitor.',
   },
   {
     industry:    'Dental',
+    demoSlug:    'dental',
     queries:     ['dental office', 'dentist'],
     painPoint:   'new patient calls going unanswered',
     valueLine:   'A new patient is worth $1,500+ in lifetime revenue.',
   },
   {
     industry:    'Auto Repair',
+    demoSlug:    'auto',
     queries:     ['auto repair shop', 'auto mechanic'],
     painPoint:   'appointment requests going to voicemail',
     valueLine:   'Every missed call is a job your competitor books instead.',
   },
   {
     industry:    'Plumbing',
+    demoSlug:    'plumbing',
     queries:     ['plumber', 'plumbing company'],
     painPoint:   'emergency plumbing calls missed after hours',
     valueLine:   'Emergency plumbing jobs average $300–$600 a visit.',
+  },
+  {
+    industry:    'Hair Salon',
+    demoSlug:    'salon',
+    queries:     ['hair salon', 'hair studio', 'beauty salon'],
+    painPoint:   'appointment requests and new client calls going to voicemail',
+    valueLine:   'A new client is worth $800–$1,200/year in repeat visits.',
   },
 ];
 
