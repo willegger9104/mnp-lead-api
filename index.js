@@ -63,7 +63,7 @@ app.get('/', (req, res) => {
     main { max-width: 1140px; margin: 0 auto; padding: 36px 48px 80px; }
 
     /* ── KPI Grid ── */
-    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 32px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 32px; }
     .kpi {
       background: linear-gradient(145deg, #0d2b22, #0a2019);
       border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
@@ -143,6 +143,16 @@ app.get('/', (req, res) => {
       .kpi-grid, .analytics-grid { grid-template-columns: 1fr; gap: 12px; }
       col.col-notes { width: 0; display: none; }
     }
+    footer {
+      text-align: center;
+      padding: 24px 48px 40px;
+      font-size: 0.62rem;
+      color: #2a3d35;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -188,6 +198,13 @@ app.get('/', (req, res) => {
         <div class="kpi-value" id="totalValue">—</div>
         <div class="kpi-sub">@ $250 per housing lead</div>
       </div>
+      <div class="kpi">
+        <div class="kpi-accent"></div>
+        <div class="kpi-icon">🌙</div>
+        <div class="kpi-label">After-Hours Leads</div>
+        <div class="kpi-value" id="afterHours">—</div>
+        <div class="kpi-sub">captured outside 9am–5pm</div>
+      </div>
     </div>
 
     <div class="section-header">
@@ -224,6 +241,9 @@ app.get('/', (req, res) => {
       </div>
     </div>
   </main>
+  <footer>
+    Built by Will Egger &nbsp;·&nbsp; MnP AI Pilot v1.0 &nbsp;·&nbsp; Powered by Vapi + Supabase
+  </footer>
 
   <script>
     let prevCount = 0;
@@ -243,14 +263,23 @@ app.get('/', (req, res) => {
       requestAnimationFrame(step);
     }
 
+    function getCategoryColor(label) {
+      const t = (label || '').toLowerCase();
+      if (t.includes('emergency'))                            return '#ef5350';
+      if (t.includes('maintenance'))                          return '#ef9a9a';
+      if (t.includes('student') || t.includes('housing'))    return '#d4af37';
+      if (t.includes('residential') || t.includes('rental')) return '#90caf9';
+      return '#7ab89a';
+    }
+
     function buildDonut(labels, values) {
-      const colors = ['#d4af37','#80cbc4','#ef9a9a','#a5d6a7','#7986cb','#ffb74d'];
+      const colors = labels.map(getCategoryColor);
       if (donutChart) donutChart.destroy();
       donutChart = new Chart(document.getElementById('donutChart'), {
         type: 'doughnut',
         data: {
           labels,
-          datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }]
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -306,10 +335,19 @@ app.get('/', (req, res) => {
       });
       buildDonut(Object.keys(typeCounts), Object.values(typeCounts));
 
-      // Bar — leads by day (last 7 days)
-      const dayCounts = {};
+      // Bar — leads by day (adaptive 7–14 day range)
       const today = new Date();
-      for (let i = 6; i >= 0; i--) {
+      let daysToShow = 7;
+      if (leads.length > 0) {
+        const earliest = leads.reduce((min, l) => {
+          const d = new Date(l.created_at || l.timestamp);
+          return d < min ? d : min;
+        }, new Date());
+        const daysSince = Math.floor((today - earliest) / 86400000);
+        daysToShow = Math.min(14, Math.max(7, daysSince + 2));
+      }
+      const dayCounts = {};
+      for (let i = daysToShow - 1; i >= 0; i--) {
         const d = new Date(today); d.setDate(d.getDate() - i);
         const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         dayCounts[key] = 0;
@@ -339,16 +377,24 @@ app.get('/', (req, res) => {
         const housingValue = housingLeads.length * 250;
 
         const hoursSaved = (total * 15) / 60;
+        const afterHoursLeads = leads.filter(l => {
+          const ts = l.created_at || l.timestamp;
+          if (!ts) return false;
+          const hour = parseInt(new Date(ts).toLocaleString('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }));
+          return hour < 9 || hour >= 17;
+        }).length;
         const isFirstLoad = prevCount === 0;
 
         if (isFirstLoad) {
           countUp(document.getElementById('totalLeads'), total, '', '', 0);
           countUp(document.getElementById('totalValue'), housingValue, '$', '', 2);
           countUp(document.getElementById('hoursSaved'), hoursSaved, '', ' hrs', 1);
+          countUp(document.getElementById('afterHours'), afterHoursLeads, '', '', 0);
         } else {
           document.getElementById('totalLeads').textContent = total;
           document.getElementById('totalValue').textContent = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
           document.getElementById('hoursSaved').textContent = hoursSaved.toFixed(1) + ' hrs';
+          document.getElementById('afterHours').textContent = afterHoursLeads;
         }
 
         document.getElementById('leadCount').textContent = total + ' total';
