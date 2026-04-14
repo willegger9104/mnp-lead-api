@@ -245,7 +245,7 @@ function buildDashboard(cfg) {
   </main>
 
   <footer>
-    Mountain-n-Plains AI &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp;
+    Front Range AI &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp;
     <a href="mailto:outreachfrontrange@gmail.com">outreachfrontrange@gmail.com</a>
   </footer>
 
