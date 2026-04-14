@@ -149,6 +149,7 @@ async function findEmail(websiteUrl) {
       function isRealEmail(e) {
         const lower = e.toLowerCase();
         const domain = lower.split('@')[1] || '';
+        if (/%[0-9a-f]{2}/i.test(e)) return false;       // reject URL-encoded addresses
         if (FAKE_DOMAINS.includes(domain)) return false;
         if (BAD_EXTENSIONS.some(ext => lower.includes(ext))) return false;
         if (lower.includes('example') || lower.includes('sentry') ||
@@ -257,6 +258,15 @@ async function run() {
             await sleep(CONFIG.delayMs);
           } catch (e) {
             console.error(`  ✗ Failed to send to ${biz.name}: ${e.message}`);
+            // Log failures so we don't retry bad addresses next run
+            await supabase.from('outreach').insert([{
+              business_name:    biz.name,
+              business_phone:   biz.phone,
+              business_website: biz.website,
+              email_address:    email.toLowerCase(),
+              industry:         campaign.industry,
+              status:           'failed',
+            }]).catch(() => {});
           }
         }
       }
