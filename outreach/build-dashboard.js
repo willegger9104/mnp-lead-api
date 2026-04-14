@@ -245,7 +245,7 @@ function buildDashboard(cfg) {
   </main>
 
   <footer>
-    Front Range AI &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp;
+    Front Range AI &nbsp;·&nbsp; Built by Will Egger &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp;
     <a href="mailto:outreachfrontrange@gmail.com">outreachfrontrange@gmail.com</a>
   </footer>
 
