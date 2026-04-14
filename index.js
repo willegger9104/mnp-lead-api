@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MnP AI Pilot Dashboard</title>
+  <title>Front Range AI — Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
   <style>
@@ -163,7 +163,7 @@ app.get('/', (req, res) => {
     <div class="brand">
       <div class="brand-icon" style="font-size:1.3rem;font-weight:900;color:#003d32;letter-spacing:-1px">M</div>
       <div style="display:flex;flex-direction:column">
-        <div class="brand-name">Mountain-n-Plains</div>
+        <div class="brand-name">Front Range AI</div>
         <div class="brand-sub">Intelligent Leasing · Zero Missed Calls</div>
       </div>
     </div>
@@ -245,7 +245,7 @@ app.get('/', (req, res) => {
     </div>
   </main>
   <footer>
-    Built by Will Egger &nbsp;·&nbsp; MnP AI Pilot v1.0 &nbsp;·&nbsp; Powered by Vapi + Supabase
+    Front Range AI &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp; outreachfrontrange@gmail.com
   </footer>
 
   <script>
@@ -544,7 +544,7 @@ app.post('/vapi-webhook', async (req, res) => {
   sendToMakeCom(leadData);
 
   if (isEmergency) {
-    return res.status(200).json({ message: 'Directing to MnP Emergency Line: 970-221-2323' });
+    return res.status(200).json({ message: 'Directing to Emergency Line: 970-221-2323' });
   }
 
   return res.status(200).json({ message: 'Lead received', lead: leadData });
@@ -560,5 +560,5 @@ app.post('/vapi-webhook', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Mountain-n-Plains AI Pilot is Live on port ${PORT}`);
+  console.log(`Front Range AI is Live on port ${PORT}`);
 });
