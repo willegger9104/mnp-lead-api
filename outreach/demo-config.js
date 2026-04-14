@@ -5,7 +5,7 @@
 const DEMOS = {
 
   property: {
-    name:             'Mountain Properties',
+    name:             'Clearview Properties',
     subtitle:         'Intelligent Leasing · Zero Missed Calls',
     phone:            '(970) 555-2323',
     agentName:        'Sarah',
