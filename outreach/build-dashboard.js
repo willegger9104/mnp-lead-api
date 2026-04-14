@@ -4,13 +4,16 @@
 
 function buildDashboard(cfg) {
   const leadsJson = JSON.stringify(cfg.leads);
+  const ahStart   = cfg.afterHoursStart !== undefined ? cfg.afterHoursStart : 9;
+  const ahEnd     = cfg.afterHoursEnd   !== undefined ? cfg.afterHoursEnd   : 17;
+  const kpi2Icon  = cfg.kpi2Icon || '🔧';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>${cfg.name} — AI Demo Dashboard</title>
+  <title>${cfg.name} — AI Voice Agent Demo</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
   <style>
@@ -90,7 +93,7 @@ function buildDashboard(cfg) {
     .badge-housing     { background: rgba(212,175,55,0.15); border-color: rgba(212,175,55,0.4);    color: #d4af37; }
     .badge-residential { background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4);  color: #90caf9; }
     .badge-maintenance { background: rgba(239,154,154,0.15); border-color: rgba(239,154,154,0.4);  color: #ef9a9a; }
-    .badge-emergency   { background: rgba(183,28,28,0.3);    border-color: rgba(244,67,54,0.4);    color: #ef9a9a; }
+    .badge-emergency   { background: rgba(183,28,28,0.3);    border-color: rgba(244,67,54,0.4);    color: #ef5350; }
 
     .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 32px; }
     .chart-card {
@@ -109,12 +112,55 @@ function buildDashboard(cfg) {
     }
     .demo-notice strong { color: #d4af37; }
 
-    footer { text-align: center; padding: 24px 48px 40px; font-size: 0.62rem; color: #2a3d35; letter-spacing: 1.5px; text-transform: uppercase; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 20px; }
+    /* ── CTA Section ─────────────────────────────────────────────────────────── */
+    .cta-section {
+      margin-top: 44px;
+      background: linear-gradient(135deg, #003d32 0%, #004d40 100%);
+      border: 1px solid rgba(212,175,55,0.35);
+      border-radius: 16px;
+      padding: 36px 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+    .cta-left .cta-heading {
+      font-size: 1.2rem; font-weight: 800; color: #e2e8e4; margin-bottom: 6px;
+    }
+    .cta-left .cta-sub {
+      font-size: 0.82rem; color: #7ab89a; margin-bottom: 4px;
+    }
+    .cta-left .cta-fine {
+      font-size: 0.68rem; color: #3d6050; letter-spacing: 0.5px;
+    }
+    .cta-btn {
+      background: linear-gradient(135deg, #d4af37, #f0d060);
+      color: #002a22;
+      padding: 15px 36px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.92rem;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.15s;
+      display: inline-block;
+      box-shadow: 0 4px 20px rgba(212,175,55,0.25);
+    }
+    .cta-btn:hover { opacity: 0.92; transform: translateY(-2px); }
+
+    footer {
+      text-align: center; padding: 24px 48px 36px;
+      font-size: 0.62rem; color: #2a3d35; letter-spacing: 1.5px;
+      text-transform: uppercase; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 20px;
+    }
+    footer a { color: #3d6050; text-decoration: none; }
+    footer a:hover { color: #5a8a74; }
 
     @media (max-width: 768px) {
       header { padding: 14px 20px; } main { padding: 24px 20px 60px; }
       .kpi-grid, .analytics-grid { grid-template-columns: 1fr; }
       col.col-notes { width: 0; display: none; }
+      .cta-section { flex-direction: column; align-items: flex-start; padding: 24px 20px; }
     }
   </style>
 </head>
@@ -141,7 +187,7 @@ function buildDashboard(cfg) {
 
   <main>
     <div class="demo-notice">
-      <strong>This is a live demo dashboard.</strong> The leads below are sample data showing how ${cfg.agentName} captures and logs every call in real time — automatically.
+      <strong>This is a live demo dashboard.</strong> The leads below show how ${cfg.agentName} captures and logs every call automatically — 24 hours a day, 7 days a week.
     </div>
 
     <div class="kpi-grid">
@@ -150,7 +196,7 @@ function buildDashboard(cfg) {
         <div class="kpi-value" id="kpi1">—</div>
         <div class="kpi-sub">${cfg.kpi1.sub}</div>
       </div>
-      <div class="kpi"><div class="kpi-accent"></div><div class="kpi-icon">🔧</div>
+      <div class="kpi"><div class="kpi-accent"></div><div class="kpi-icon">${kpi2Icon}</div>
         <div class="kpi-label">${cfg.kpi2.label}</div>
         <div class="kpi-value" id="kpi2">—</div>
         <div class="kpi-sub">${cfg.kpi2.sub}</div>
@@ -187,17 +233,31 @@ function buildDashboard(cfg) {
       <div class="chart-card"><div class="chart-title">Calls by Type</div><div class="chart-container"><canvas id="donutChart"></canvas></div></div>
       <div class="chart-card"><div class="chart-title">Calls by Day</div><div class="chart-container"><canvas id="barChart"></canvas></div></div>
     </div>
+
+    <div class="cta-section">
+      <div class="cta-left">
+        <div class="cta-heading">Want this running for your business?</div>
+        <div class="cta-sub">Setup in about a week. Runs 24/7 from day one.</div>
+        <div class="cta-fine">$250 / month &nbsp;·&nbsp; One-time setup fee &nbsp;·&nbsp; No contract</div>
+      </div>
+      <a class="cta-btn" href="mailto:outreachfrontrange@gmail.com?subject=AI Voice Agent Demo — Interested">Book a 15-Min Call →</a>
+    </div>
   </main>
 
-  <footer>Built by Will Egger &nbsp;·&nbsp; AI Voice Agent Demo &nbsp;·&nbsp; Powered by Vapi + Supabase</footer>
+  <footer>
+    Mountain-n-Plains AI &nbsp;·&nbsp; Fort Collins, CO &nbsp;·&nbsp;
+    <a href="mailto:outreachfrontrange@gmail.com">outreachfrontrange@gmail.com</a>
+  </footer>
 
   <script>
-    const LEADS   = ${leadsJson};
-    const BADGES  = ${JSON.stringify(cfg.badges)};
+    const LEADS            = ${leadsJson};
+    const BADGES           = ${JSON.stringify(cfg.badges)};
     const KPI1_TYPES       = ${JSON.stringify(cfg.kpi1Types)};
     const KPI2_TYPES       = ${JSON.stringify(cfg.kpi2Types)};
     const VALUE_CATEGORIES = ${JSON.stringify(cfg.valueCategory)};
     const VALUE_PER_LEAD   = ${cfg.valuePerLead};
+    const AFTER_HOURS_START = ${ahStart};
+    const AFTER_HOURS_END   = ${ahEnd};
 
     let donutChart, barChart;
 
@@ -267,30 +327,26 @@ function buildDashboard(cfg) {
     function render() {
       const total = LEADS.length;
 
-      // KPI 1 — industry-specific primary type
       const primary = LEADS.filter(l => {
         const t = (l.type||'').toLowerCase();
         return KPI1_TYPES.some(k => t.includes(k.toLowerCase()));
       }).length;
 
-      // KPI 2 — industry-specific secondary type
       const secondary = LEADS.filter(l => {
         const t = (l.type||'').toLowerCase();
         return KPI2_TYPES.some(k => t.includes(k.toLowerCase()));
       }).length;
 
-      // KPI 3 — value based on value categories
       const valuableLeads = LEADS.filter(l => {
         const t = (l.type||'').toLowerCase();
         return VALUE_CATEGORIES.some(c => t.includes(c.toLowerCase()));
       }).length;
       const totalValue = valuableLeads * VALUE_PER_LEAD;
 
-      // KPI 4 — after hours
       const afterHours = LEADS.filter(l => {
         if (!l.date) return false;
         const hour = parseInt(new Date(l.date).toLocaleString('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }));
-        return hour < 9 || hour >= 17;
+        return hour < AFTER_HOURS_START || hour >= AFTER_HOURS_END;
       }).length;
 
       countUp(document.getElementById('kpi1'), primary, '', '', 0);
@@ -299,7 +355,6 @@ function buildDashboard(cfg) {
       countUp(document.getElementById('kpi4'), afterHours, '', '', 0);
       document.getElementById('leadCount').textContent = total + ' total';
 
-      // Table
       document.getElementById('leadsBody').innerHTML = LEADS.map(l => {
         const badgeClass = getBadgeClass(l.type);
         const ts = l.date ? new Date(l.date).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -312,12 +367,10 @@ function buildDashboard(cfg) {
           '</tr>';
       }).join('');
 
-      // Donut
       const typeCounts = {};
       LEADS.forEach(l => { typeCounts[l.type] = (typeCounts[l.type]||0) + 1; });
       buildDonut(Object.keys(typeCounts), Object.values(typeCounts));
 
-      // Bar — last 14 days
       const today = new Date();
       const dayCounts = {};
       for (let i = 13; i >= 0; i--) {
