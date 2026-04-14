@@ -140,19 +140,33 @@ async function findEmail(websiteUrl) {
 
       const $ = cheerio.load(res.data);
 
+      // Placeholder domains and bad extensions to reject
+      const FAKE_DOMAINS = ['domain.com', 'mysite.com', 'yourdomain.com', 'website.com',
+                            'sample.com', 'test.com', 'email.com', 'placeholder.com',
+                            'company.com', 'yourcompany.com', 'example.com'];
+      const BAD_EXTENSIONS = ['.gif', '.png', '.jpg', '.jpeg', '.svg', '.css', '.js', '.mp4', '.pdf', '.webp'];
+
+      function isRealEmail(e) {
+        const lower = e.toLowerCase();
+        const domain = lower.split('@')[1] || '';
+        if (FAKE_DOMAINS.includes(domain)) return false;
+        if (BAD_EXTENSIONS.some(ext => lower.includes(ext))) return false;
+        if (lower.includes('example') || lower.includes('sentry') ||
+            lower.includes('wix')    || lower.includes('noreply') ||
+            lower.includes('no-reply')) return false;
+        return true;
+      }
+
       // 1. Check mailto: links first (most reliable)
       const mailtoEmails = [];
       $('a[href^="mailto:"]').each((_, el) => {
         const raw = $(el).attr('href').replace('mailto:', '').split('?')[0].trim();
-        if (raw) mailtoEmails.push(raw);
+        if (raw && isRealEmail(raw)) mailtoEmails.push(raw);
       });
       if (mailtoEmails.length) return mailtoEmails[0];
 
       // 2. Regex scan on page text
-      const found = (res.data.match(emailRegex) || []).filter(e =>
-        !e.includes('example') && !e.includes('sentry') &&
-        !e.includes('wix')    && !e.includes('.png') && !e.includes('.jpg')
-      );
+      const found = (res.data.match(emailRegex) || []).filter(isRealEmail);
       if (found.length) return found[0];
 
     } catch (_) { /* page not found or timeout — try next */ }
