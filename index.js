@@ -113,6 +113,16 @@ app.get('/', (req, res) => {
     .kpi-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #5a8a74; margin-bottom: 10px; font-weight: 600; }
     .kpi-value { font-size: 3rem; font-weight: 800; color: #d4af37; line-height: 1; letter-spacing: -1px; }
     .kpi-sub { font-size: 0.75rem; color: #3d6050; margin-top: 8px; }
+    .info-icon {
+      display: inline-block;
+      cursor: help;
+      color: #d4af37;
+      margin-left: 4px;
+      font-size: 0.78rem;
+      opacity: 0.65;
+      transition: opacity 0.15s;
+    }
+    .info-icon:hover { opacity: 1; }
 
     /* ── High Priority Banner ── */
     .hp-banner {
@@ -323,7 +333,10 @@ app.get('/', (req, res) => {
         <div class="kpi-icon">💰</div>
         <div class="kpi-label">Estimated Lead Value</div>
         <div class="kpi-value" id="totalValue">—</div>
-        <div class="kpi-sub">weighted: $650 res · $450 student · $1k risk · $50 OpEx</div>
+        <div class="kpi-sub">
+          weighted across all leads
+          <span class="info-icon" title="Residential Rental: $650  ·  Student Housing: $450  ·  Emergency (risk mitigation): $1,000  ·  Maintenance (OpEx savings): $50">ⓘ</span>
+        </div>
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
@@ -410,11 +423,17 @@ app.get('/', (req, res) => {
       const el = document.getElementById(id);
       el.textContent = text;
       const len = text.length;
-      if      (len >= 13) el.style.fontSize = '1.3rem';
-      else if (len >= 11) el.style.fontSize = '1.6rem';
-      else if (len >= 9)  el.style.fontSize = '2rem';
-      else if (len >= 7)  el.style.fontSize = '2.5rem';
+      if      (len >= 12) el.style.fontSize = '1.6rem';
+      else if (len >= 10) el.style.fontSize = '2rem';
+      else if (len >= 8)  el.style.fontSize = '2.4rem';
       else                el.style.fontSize = '';
+    }
+
+    // Compact currency: $7,450 stays as is; $125,000 → $125k; $1,250,000 → $1.25M
+    function fmtCurrency(n) {
+      if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'M';
+      if (n >= 100_000)   return '$' + Math.round(n / 1000) + 'k';
+      return '$' + Math.round(n).toLocaleString('en-US');
     }
 
     function countUp(el, target, prefix, suffix, decimals) {
@@ -592,7 +611,7 @@ app.get('/', (req, res) => {
         }
 
         const isFirstLoad = prevCount === 0;
-        setFitValue('totalValue', '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 0 }));
+        setFitValue('totalValue', fmtCurrency(totalValue));
 
         if (isFirstLoad) {
           countUp(document.getElementById('leasingLeads'),     leasingCount,     '', '', 0);
