@@ -149,6 +149,66 @@ app.get('/', (req, res) => {
       letter-spacing: 0.3px;
     }
 
+    /* ── Status Badges ── */
+    .badge-prequal {
+      background: rgba(76,175,80,0.18);
+      border: 1px solid rgba(76,175,80,0.45);
+      color: #81c784;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .badge-pending {
+      background: rgba(120,140,130,0.10);
+      border: 1px solid rgba(120,140,130,0.30);
+      color: #5a8a74;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    /* ── Prequal Filter Toggle ── */
+    .filter-row {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 10px; margin-bottom: 10px;
+    }
+    .filter-toggle {
+      background: linear-gradient(145deg, #0d2b22, #0a2019);
+      border: 1px solid rgba(76,175,80,0.35);
+      color: #81c784;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .filter-toggle:hover { border-color: #4caf50; color: #a5d6a7; }
+    .filter-toggle.active {
+      background: linear-gradient(135deg, #1b5e20, #2e7d32);
+      border-color: #4caf50;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(76,175,80,0.25);
+    }
+    .filter-toggle .toggle-dot {
+      width: 7px; height: 7px; background: currentColor; border-radius: 50%;
+    }
+
     /* ── Section Header ── */
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     .section-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2.5px; color: #5a8a74; font-weight: 700; }
@@ -157,12 +217,13 @@ app.get('/', (req, res) => {
     /* ── Table ── */
     .table-wrap { background: linear-gradient(145deg, #0d2b22, #0a2019); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    col.col-name   { width: 14%; }
-    col.col-phone  { width: 12%; }
-    col.col-int    { width: 15%; }
-    col.col-addr   { width: 14%; }
-    col.col-notes  { width: 27%; }
-    col.col-time   { width: 18%; }
+    col.col-name   { width: 12%; }
+    col.col-phone  { width: 11%; }
+    col.col-int    { width: 13%; }
+    col.col-status { width: 11%; }
+    col.col-addr   { width: 13%; }
+    col.col-notes  { width: 24%; }
+    col.col-time   { width: 16%; }
     thead tr { background: linear-gradient(90deg, #003d32, #004d40); border-bottom: 1px solid rgba(212,175,55,0.15); }
     th { padding: 14px 16px; text-align: left; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 2px; color: #d4af37; font-weight: 700; }
     td { padding: 14px 16px; font-size: 0.83rem; color: #b0c4bb; border-top: 1px solid rgba(255,255,255,0.04); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
@@ -211,7 +272,8 @@ app.get('/', (req, res) => {
       .phone-banner { padding: 8px 20px; font-size: 0.7rem; }
       main { padding: 24px 20px 60px; }
       .kpi-grid, .analytics-grid { grid-template-columns: 1fr; gap: 12px; }
-      col.col-notes, col.col-addr { width: 0; display: none; }
+      col.col-notes, col.col-addr, col.col-status { width: 0; display: none; }
+      .filter-row { justify-content: flex-start; }
     }
     footer {
       text-align: center; padding: 24px 48px 40px; font-size: 0.62rem;
@@ -261,7 +323,7 @@ app.get('/', (req, res) => {
         <div class="kpi-icon">💰</div>
         <div class="kpi-label">Estimated Lead Value</div>
         <div class="kpi-value" id="totalValue">—</div>
-        <div class="kpi-sub">@ $250 per housing lead</div>
+        <div class="kpi-sub">weighted: $650 res · $450 student · $1k risk · $50 OpEx</div>
       </div>
       <div class="kpi">
         <div class="kpi-accent"></div>
@@ -282,16 +344,23 @@ app.get('/', (req, res) => {
       <span>⚠ <strong id="hpCount">0</strong> High Priority lead(s) require immediate follow-up</span>
     </div>
 
+    <div class="filter-row">
+      <button id="prequalToggle" class="filter-toggle" type="button" aria-pressed="false">
+        <span class="toggle-dot"></span>
+        <span id="prequalToggleLabel">Show Prequalified Only</span>
+      </button>
+    </div>
+
     <div class="table-wrap">
       <table>
         <colgroup>
-          <col class="col-name"/><col class="col-phone"/><col class="col-int"/><col class="col-addr"/><col class="col-notes"/><col class="col-time"/>
+          <col class="col-name"/><col class="col-phone"/><col class="col-int"/><col class="col-status"/><col class="col-addr"/><col class="col-notes"/><col class="col-time"/>
         </colgroup>
         <thead>
-          <tr><th>Name</th><th>Phone</th><th>Interest</th><th>Address</th><th>Notes</th><th>Time</th></tr>
+          <tr><th>Name</th><th>Phone</th><th>Interest</th><th>Status</th><th>Address</th><th>Notes</th><th>Time</th></tr>
         </thead>
         <tbody id="leadsBody">
-          <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading leads...</p></div></td></tr>
+          <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading leads...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -318,6 +387,24 @@ app.get('/', (req, res) => {
   <script>
     let prevCount = 0;
     let donutChart, barChart;
+    let showPrequalOnly = false;
+    let lastLeads = [];
+
+    /* Weighted lead-value rubric (single source of truth) */
+    const LEAD_VALUE = {
+      student:     450,   // Student Housing — leasing pipeline
+      residential: 650,   // Residential Rental — leasing pipeline
+      emergency:  1000,   // Emergency — risk mitigation
+      maintenance:  50,   // Maintenance — OpEx triage savings
+    };
+    function leadValue(l) {
+      const t = (l.interest_type || '').toLowerCase();
+      if (t.includes('emergency'))                              return LEAD_VALUE.emergency;
+      if (t.includes('maintenance'))                            return LEAD_VALUE.maintenance;
+      if (t.includes('residential') || t.includes('rental'))    return LEAD_VALUE.residential;
+      if (t.includes('student')     || t.includes('housing'))   return LEAD_VALUE.student;
+      return 0;
+    }
 
     function setFitValue(id, text) {
       const el = document.getElementById(id);
@@ -425,26 +512,74 @@ app.get('/', (req, res) => {
       buildBar(Object.keys(dayCounts), Object.values(dayCounts));
     }
 
+    function renderTable(leads, total) {
+      const tbody = document.getElementById('leadsBody');
+      const visible = showPrequalOnly ? leads.filter(l => l.is_prequalified === true) : leads;
+
+      if (visible.length === 0) {
+        const msg = showPrequalOnly
+          ? 'No prequalified leads yet — toggle off to see all.'
+          : 'No leads yet — waiting for Vapi...';
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>' + msg + '</p></div></td></tr>';
+        return;
+      }
+
+      const isNew = total > prevCount;
+      tbody.innerHTML = visible.map((l, i) => {
+        const t = (l.interest_type || '').toLowerCase();
+        let badgeClass = 'badge-housing';
+        if (t.includes('emergency'))                                 badgeClass = 'badge-emergency';
+        else if (t.includes('maintenance'))                          badgeClass = 'badge-maintenance';
+        else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
+
+        const priority   = parseInt(l.priority_level) || 0;
+        const hpBadge    = priority > 7 ? '<span class="priority-badge">P' + priority + '</span>' : '';
+        const rowClass   = (isNew && i === 0 && !showPrequalOnly) ? 'new-row' : '';
+        const notes      = l.notes || '—';
+        const address    = l.property_address || '—';
+        const ts         = l.created_at
+          ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '—';
+
+        const statusBadge = l.is_prequalified === true
+          ? '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified</span>'
+          : '<span class="badge-pending">Unscreened</span>';
+
+        return '<tr class="' + rowClass + '">' +
+          '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + hpBadge + '</td>' +
+          '<td class="phone-cell">' + (l.customer_phone || '') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '" title="' + (l.interest_type || '') + '">' + (l.interest_type || '') + '</span></td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td class="addr-cell" title="' + address + '">' + address + '</td>' +
+          '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
+          '<td class="ts">' + ts + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
     async function fetchLeads() {
       try {
         const res = await fetch('/api/leads');
         const data = await res.json();
         const { total, leads } = data;
+        lastLeads = leads;
 
-        const housingLeads = leads.filter(l => {
+        const leasingLeads = leads.filter(l => {
           const t = (l.interest_type || '').toLowerCase();
           return (t.includes('housing') || t.includes('residential') || t.includes('rental'))
             && !t.includes('maintenance') && !t.includes('emergency');
         });
-        const housingValue    = housingLeads.length * 250;
-        const leasingCount    = housingLeads.length;
+        const leasingCount     = leasingLeads.length;
         const maintenanceCount = leads.filter(l => (l.interest_type || '').toLowerCase().includes('maintenance')).length;
-        const afterHoursCount = leads.filter(l => {
+        const afterHoursCount  = leads.filter(l => {
           const ts = l.created_at || l.timestamp;
           if (!ts) return false;
           const hour = parseInt(new Date(ts).toLocaleString('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }));
           return hour < 9 || hour >= 17;
         }).length;
+
+        // Weighted lead-value: sum across all categories
+        const totalValue = leads.reduce((sum, l) => sum + leadValue(l), 0);
 
         const highPriorityLeads = leads.filter(l => (parseInt(l.priority_level) || 0) > 7);
         const hpBanner = document.getElementById('highPriorityBanner');
@@ -457,7 +592,7 @@ app.get('/', (req, res) => {
         }
 
         const isFirstLoad = prevCount === 0;
-        setFitValue('totalValue', '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+        setFitValue('totalValue', '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 0 }));
 
         if (isFirstLoad) {
           countUp(document.getElementById('leasingLeads'),     leasingCount,     '', '', 0);
@@ -472,44 +607,24 @@ app.get('/', (req, res) => {
         document.getElementById('leadCount').textContent   = total + ' total';
         document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-        const tbody  = document.getElementById('leadsBody');
-        if (leads.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>No leads yet — waiting for Vapi...</p></div></td></tr>';
-        } else {
-          const isNew = total > prevCount;
-          tbody.innerHTML = leads.map((l, i) => {
-            const t = (l.interest_type || '').toLowerCase();
-            let badgeClass = 'badge-housing';
-            if (t.includes('emergency'))                         badgeClass = 'badge-emergency';
-            else if (t.includes('maintenance'))                  badgeClass = 'badge-maintenance';
-            else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
-
-            const priority     = parseInt(l.priority_level) || 0;
-            const hpBadge      = priority > 7 ? '<span class="priority-badge">P' + priority + '</span>' : '';
-            const rowClass     = (isNew && i === 0) ? 'new-row' : '';
-            const notes        = l.notes || '—';
-            const address      = l.property_address || '—';
-            const ts           = l.created_at
-              ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-              : '—';
-
-            return '<tr class="' + rowClass + '">' +
-              '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + hpBadge + '</td>' +
-              '<td class="phone-cell">' + (l.customer_phone || '') + '</td>' +
-              '<td><span class="badge ' + badgeClass + '" title="' + (l.interest_type || '') + '">' + (l.interest_type || '') + '</span></td>' +
-              '<td class="addr-cell" title="' + address + '">' + address + '</td>' +
-              '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
-              '<td class="ts">' + ts + '</td>' +
-            '</tr>';
-          }).join('');
-        }
-
+        renderTable(leads, total);
         updateCharts([...leads].reverse());
         prevCount = total;
       } catch (e) {
         console.error('Failed to fetch leads:', e);
       }
     }
+
+    // Prequal-only filter toggle
+    document.getElementById('prequalToggle').addEventListener('click', () => {
+      showPrequalOnly = !showPrequalOnly;
+      const btn   = document.getElementById('prequalToggle');
+      const label = document.getElementById('prequalToggleLabel');
+      btn.classList.toggle('active', showPrequalOnly);
+      btn.setAttribute('aria-pressed', String(showPrequalOnly));
+      label.textContent = showPrequalOnly ? 'Showing Prequalified Only' : 'Show Prequalified Only';
+      renderTable(lastLeads, lastLeads.length);
+    });
 
     fetchLeads();
     setInterval(fetchLeads, 10000);
@@ -528,7 +643,8 @@ app.post('/vapi-webhook', async (req, res) => {
 
   console.log('Vapi event received:', msgType || 'direct');
 
-  let customer_name, customer_phone, interest_type, notes, priority_level, property_address;
+  let customer_name, customer_phone, interest_type, notes, priority_level, property_address,
+      is_prequalified, income_verified, move_in_date;
 
   // ── Primary: end-of-call-report → structuredData ──
   if (msgType === 'end-of-call-report') {
@@ -540,7 +656,10 @@ app.post('/vapi-webhook', async (req, res) => {
       notes            = structured.notes            || '';
       priority_level   = structured.priority_level;
       property_address = structured.property_address || '';
-      console.log('Lead from structuredData:', { customer_name, customer_phone, interest_type, priority_level, property_address });
+      is_prequalified  = structured.is_prequalified;
+      income_verified  = structured.income_verified  || '';
+      move_in_date     = structured.move_in_date     || '';
+      console.log('Lead from structuredData:', { customer_name, customer_phone, interest_type, priority_level, property_address, is_prequalified });
     } else {
       console.log('end-of-call-report: no structuredData present.');
       return res.status(200).json({ received: true });
@@ -556,7 +675,10 @@ app.post('/vapi-webhook', async (req, res) => {
     notes            = params?.notes            || '';
     priority_level   = params?.priority_level;
     property_address = params?.property_address || '';
-    console.log('Lead from tool-calls:', { customer_name, customer_phone, interest_type, priority_level, property_address });
+    is_prequalified  = params?.is_prequalified;
+    income_verified  = params?.income_verified  || '';
+    move_in_date     = params?.move_in_date     || '';
+    console.log('Lead from tool-calls:', { customer_name, customer_phone, interest_type, priority_level, property_address, is_prequalified });
 
   } else if (msgType === 'function-call' && msg.functionCall) {
     const params     = msg.functionCall.parameters;
@@ -566,6 +688,9 @@ app.post('/vapi-webhook', async (req, res) => {
     notes            = params?.notes            || '';
     priority_level   = params?.priority_level;
     property_address = params?.property_address || '';
+    is_prequalified  = params?.is_prequalified;
+    income_verified  = params?.income_verified  || '';
+    move_in_date     = params?.move_in_date     || '';
 
   // ── Manual / direct POST ──
   } else if (!msgType) {
@@ -575,6 +700,9 @@ app.post('/vapi-webhook', async (req, res) => {
     notes            = req.body.notes            || '';
     priority_level   = req.body.priority_level;
     property_address = req.body.property_address || '';
+    is_prequalified  = req.body.is_prequalified;
+    income_verified  = req.body.income_verified  || '';
+    move_in_date     = req.body.move_in_date     || '';
 
   } else {
     return res.status(200).json({ received: true });
@@ -609,6 +737,9 @@ app.post('/vapi-webhook', async (req, res) => {
     notes:            isEmergency ? (notes || 'EMERGENCY — directed to 970-221-2323') : notes,
     priority_level:   normalizedPriority,
     property_address: property_address || '',
+    is_prequalified:  is_prequalified === true || is_prequalified === 'true',
+    income_verified:  income_verified || '',
+    move_in_date:     move_in_date    || '',
   };
 
   const { error } = await supabase.from('leads').insert([leadData]);

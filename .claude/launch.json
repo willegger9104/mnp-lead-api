@@ -1,11 +1,12 @@
 {
   "version": "0.0.1",
+  "autoPort": true,
   "configurations": [
     {
       "name": "MnP Lead API",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["index.js"],
-      "port": 3000
+      "runtimeArgs": ["--env-file=.env", "index.js"],
+      "autoPort": true
     },
     {
       "name": "Pitch Docs",
