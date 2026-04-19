@@ -11,9 +11,17 @@ const supabase = createClient(
 );
 
 const twilio = require('twilio');
-const twilioClient = (process.env.TWILIO_SID && process.env.TWILIO_TOKEN)
-  ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
-  : null;
+let twilioClient = null;
+try {
+  if (process.env.TWILIO_SID?.startsWith('AC') && process.env.TWILIO_TOKEN) {
+    twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+    console.log('[alert] Twilio client initialized');
+  } else {
+    console.log('[alert] Twilio env vars missing or invalid — SMS disabled');
+  }
+} catch (e) {
+  console.log('[alert] Twilio init failed, SMS disabled:', e.message);
+}
 
 async function sendEmergencyAlert(lead) {
   if (!twilioClient || !process.env.ALERT_PHONE || !process.env.TWILIO_FROM) {
