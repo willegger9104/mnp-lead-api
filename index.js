@@ -1,8 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const { buildDashboard } = require('./outreach/build-dashboard');
-const DEMOS = require('./outreach/demo-config');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -13,7 +12,6 @@ const supabase = createClient(
 
 app.use(express.json());
 
-// --- API endpoint for dashboard to fetch leads as JSON ---
 app.get('/api/leads', async (req, res) => {
   const { data, error } = await supabase
     .from('leads')
@@ -48,7 +46,8 @@ app.get('/', (req, res) => {
     .brand-icon {
       width: 38px; height: 38px;
       background: linear-gradient(135deg, #d4af37, #f0d060);
-      border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; font-weight: 900; color: #003d32; letter-spacing: -1px;
     }
     .brand-name { font-size: 1.1rem; font-weight: 800; color: #d4af37; }
     .brand-sub { font-size: 0.65rem; color: #7ab89a; letter-spacing: 2.5px; text-transform: uppercase; margin-top: 1px; }
@@ -63,7 +62,7 @@ app.get('/', (req, res) => {
     .last-updated { font-size: 0.68rem; color: #4a7060; }
 
     /* ── Main ── */
-    main { max-width: 1140px; margin: 0 auto; padding: 36px 48px 80px; }
+    main { max-width: 1180px; margin: 0 auto; padding: 36px 48px 80px; }
 
     /* ── KPI Grid ── */
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 32px; }
@@ -79,7 +78,41 @@ app.get('/', (req, res) => {
     .kpi-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #5a8a74; margin-bottom: 10px; font-weight: 600; }
     .kpi-value { font-size: 3rem; font-weight: 800; color: #d4af37; line-height: 1; letter-spacing: -1px; }
     .kpi-sub { font-size: 0.75rem; color: #3d6050; margin-top: 8px; }
-    .kpi-status-value { font-size: 0.95rem; font-weight: 600; color: #81c784; line-height: 1.6; }
+
+    /* ── High Priority Banner ── */
+    .hp-banner {
+      display: none;
+      background: rgba(183,28,28,0.22);
+      border: 1px solid rgba(244,67,54,0.4);
+      border-radius: 12px;
+      color: #ef9a9a;
+      padding: 11px 18px;
+      margin-bottom: 16px;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      animation: hpPulse 3s ease-in-out infinite;
+    }
+    .hp-banner.visible { display: flex; }
+    .hp-banner-dot { width: 8px; height: 8px; background: #ef5350; border-radius: 50%; box-shadow: 0 0 8px #ef5350; flex-shrink: 0; }
+    .hp-banner strong { color: #ef5350; }
+    @keyframes hpPulse { 0%,100%{border-color:rgba(244,67,54,0.4)} 50%{border-color:rgba(244,67,54,0.7)} }
+
+    /* ── Priority Badge (per-row) ── */
+    .priority-badge {
+      display: inline-block;
+      background: rgba(183,28,28,0.3);
+      border: 1px solid rgba(244,67,54,0.45);
+      color: #ef5350;
+      border-radius: 999px;
+      font-size: 0.6rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: 0.3px;
+    }
 
     /* ── Section Header ── */
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -89,10 +122,11 @@ app.get('/', (req, res) => {
     /* ── Table ── */
     .table-wrap { background: linear-gradient(145deg, #0d2b22, #0a2019); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    col.col-name   { width: 16%; }
-    col.col-phone  { width: 14%; }
-    col.col-int    { width: 18%; }
-    col.col-notes  { width: 34%; }
+    col.col-name   { width: 14%; }
+    col.col-phone  { width: 12%; }
+    col.col-int    { width: 15%; }
+    col.col-addr   { width: 14%; }
+    col.col-notes  { width: 27%; }
     col.col-time   { width: 18%; }
     thead tr { background: linear-gradient(90deg, #003d32, #004d40); border-bottom: 1px solid rgba(212,175,55,0.15); }
     th { padding: 14px 16px; text-align: left; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 2px; color: #d4af37; font-weight: 700; }
@@ -100,7 +134,8 @@ app.get('/', (req, res) => {
     tr:hover td { background: rgba(255,255,255,0.02); }
     .name-cell { font-weight: 600; color: #d4e8de; }
     .phone-cell { font-family: monospace; font-size: 0.8rem; color: #7ab89a; }
-    .notes-cell { color: #607d6e; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+    .addr-cell { color: #7ab89a; font-size: 0.78rem; }
+    .notes-cell { color: #607d6e; font-size: 0.78rem; }
     .ts { color: #3d6050; font-size: 0.75rem; }
     .badge {
       display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 500;
@@ -136,32 +171,24 @@ app.get('/', (req, res) => {
     .chart-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #5a8a74; font-weight: 700; margin-bottom: 20px; }
     .chart-container { position: relative; height: 220px; }
 
-    /* ── Count-up animation ── */
-    .kpi-value { transition: color 0.3s, font-size 0.3s; }
-
     @media (max-width: 768px) {
       header { padding: 14px 20px; }
       .phone-banner { padding: 8px 20px; font-size: 0.7rem; }
       main { padding: 24px 20px 60px; }
       .kpi-grid, .analytics-grid { grid-template-columns: 1fr; gap: 12px; }
-      col.col-notes { width: 0; display: none; }
+      col.col-notes, col.col-addr { width: 0; display: none; }
     }
     footer {
-      text-align: center;
-      padding: 24px 48px 40px;
-      font-size: 0.62rem;
-      color: #2a3d35;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      border-top: 1px solid rgba(255,255,255,0.04);
-      margin-top: 20px;
+      text-align: center; padding: 24px 48px 40px; font-size: 0.62rem;
+      color: #2a3d35; letter-spacing: 1.5px; text-transform: uppercase;
+      border-top: 1px solid rgba(255,255,255,0.04); margin-top: 20px;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <div class="brand-icon" style="font-size:1.3rem;font-weight:900;color:#003d32;letter-spacing:-1px">M</div>
+      <div class="brand-icon">M</div>
       <div style="display:flex;flex-direction:column">
         <div class="brand-name">Front Range AI</div>
         <div class="brand-sub">Intelligent Leasing · Zero Missed Calls</div>
@@ -215,16 +242,21 @@ app.get('/', (req, res) => {
       <div class="section-count" id="leadCount">0 total</div>
     </div>
 
+    <div id="highPriorityBanner" class="hp-banner">
+      <span class="hp-banner-dot"></span>
+      <span>⚠ <strong id="hpCount">0</strong> High Priority lead(s) require immediate follow-up</span>
+    </div>
+
     <div class="table-wrap">
       <table>
         <colgroup>
-          <col class="col-name"/><col class="col-phone"/><col class="col-int"/><col class="col-notes"/><col class="col-time"/>
+          <col class="col-name"/><col class="col-phone"/><col class="col-int"/><col class="col-addr"/><col class="col-notes"/><col class="col-time"/>
         </colgroup>
         <thead>
-          <tr><th>Name</th><th>Phone</th><th>Interest</th><th>Notes</th><th>Time</th></tr>
+          <tr><th>Name</th><th>Phone</th><th>Interest</th><th>Address</th><th>Notes</th><th>Time</th></tr>
         </thead>
         <tbody id="leadsBody">
-          <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading leads...</p></div></td></tr>
+          <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading leads...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -266,11 +298,10 @@ app.get('/', (req, res) => {
     function countUp(el, target, prefix, suffix, decimals) {
       const duration = 800;
       const start = performance.now();
-      const from = 0;
       function step(now) {
         const progress = Math.min((now - start) / duration, 1);
         const ease = 1 - Math.pow(1 - progress, 3);
-        const value = from + (target - from) * ease;
+        const value = (target * ease);
         el.textContent = (prefix || '') + value.toLocaleString('en-US', { minimumFractionDigits: decimals || 0, maximumFractionDigits: decimals || 0 }) + (suffix || '');
         if (progress < 1) requestAnimationFrame(step);
       }
@@ -291,16 +322,10 @@ app.get('/', (req, res) => {
       if (donutChart) donutChart.destroy();
       donutChart = new Chart(document.getElementById('donutChart'), {
         type: 'doughnut',
-        data: {
-          labels,
-          datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
-        },
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
         options: {
-          responsive: true, maintainAspectRatio: false,
-          cutout: '65%',
-          plugins: {
-            legend: { position: 'right', labels: { color: '#7ab89a', font: { size: 11 }, padding: 12, boxWidth: 10 } }
-          }
+          responsive: true, maintainAspectRatio: false, cutout: '65%',
+          plugins: { legend: { position: 'right', labels: { color: '#7ab89a', font: { size: 11 }, padding: 12, boxWidth: 10 } } }
         }
       });
     }
@@ -311,14 +336,7 @@ app.get('/', (req, res) => {
         type: 'bar',
         data: {
           labels,
-          datasets: [{
-            label: 'Leads',
-            data: values,
-            backgroundColor: 'rgba(212,175,55,0.5)',
-            borderColor: '#d4af37',
-            borderWidth: 1,
-            borderRadius: 4,
-          }]
+          datasets: [{ label: 'Leads', data: values, backgroundColor: 'rgba(212,175,55,0.5)', borderColor: '#d4af37', borderWidth: 1, borderRadius: 4 }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -333,15 +351,14 @@ app.get('/', (req, res) => {
 
     function normalizeType(raw) {
       const t = (raw || '').toLowerCase();
-      if (t.includes('emergency'))   return 'Emergency';
-      if (t.includes('maintenance')) return 'Maintenance Request';
-      if (t.includes('student') || t.includes('housing')) return 'Student Housing';
+      if (t.includes('emergency'))                            return 'Emergency';
+      if (t.includes('maintenance'))                          return 'Maintenance Request';
+      if (t.includes('student') || t.includes('housing'))    return 'Student Housing';
       if (t.includes('residential') || t.includes('rental')) return 'Residential Rental';
       return raw;
     }
 
     function updateCharts(leads) {
-      // Donut — interest type breakdown
       const typeCounts = {};
       leads.forEach(l => {
         const t = normalizeType(l.interest_type);
@@ -349,7 +366,6 @@ app.get('/', (req, res) => {
       });
       buildDonut(Object.keys(typeCounts), Object.values(typeCounts));
 
-      // Bar — leads by day (adaptive 7–14 day range)
       const today = new Date();
       let daysToShow = 7;
       if (leads.length > 0) {
@@ -363,14 +379,12 @@ app.get('/', (req, res) => {
       const dayCounts = {};
       for (let i = daysToShow - 1; i >= 0; i--) {
         const d = new Date(today); d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        dayCounts[key] = 0;
+        dayCounts[d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })] = 0;
       }
       leads.forEach(l => {
         const ts = l.timestamp || l.created_at;
         if (!ts) return;
-        const d = new Date(ts);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const key = new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (key in dayCounts) dayCounts[key]++;
       });
       buildBar(Object.keys(dayCounts), Object.values(dayCounts));
@@ -382,15 +396,13 @@ app.get('/', (req, res) => {
         const data = await res.json();
         const { total, leads } = data;
 
-        // Only count housing leads for value (exclude maintenance & emergency)
         const housingLeads = leads.filter(l => {
           const t = (l.interest_type || '').toLowerCase();
           return (t.includes('housing') || t.includes('residential') || t.includes('rental'))
             && !t.includes('maintenance') && !t.includes('emergency');
         });
-        const housingValue = housingLeads.length * 250;
-
-        const leasingCount = housingLeads.length;
+        const housingValue    = housingLeads.length * 250;
+        const leasingCount    = housingLeads.length;
         const maintenanceCount = leads.filter(l => (l.interest_type || '').toLowerCase().includes('maintenance')).length;
         const afterHoursCount = leads.filter(l => {
           const ts = l.created_at || l.timestamp;
@@ -398,44 +410,61 @@ app.get('/', (req, res) => {
           const hour = parseInt(new Date(ts).toLocaleString('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }));
           return hour < 9 || hour >= 17;
         }).length;
-        const isFirstLoad = prevCount === 0;
 
-        const valueText = '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 });
-        setFitValue('totalValue', valueText);
-
-        if (isFirstLoad) {
-          countUp(document.getElementById('leasingLeads'), leasingCount, '', '', 0);
-          countUp(document.getElementById('maintenanceCalls'), maintenanceCount, '', '', 0);
-          countUp(document.getElementById('afterHours'), afterHoursCount, '', '', 0);
+        const highPriorityLeads = leads.filter(l => (parseInt(l.priority_level) || 0) > 7);
+        const hpBanner = document.getElementById('highPriorityBanner');
+        const hpCount  = document.getElementById('hpCount');
+        if (highPriorityLeads.length > 0) {
+          hpBanner.classList.add('visible');
+          hpCount.textContent = highPriorityLeads.length;
         } else {
-          document.getElementById('leasingLeads').textContent = leasingCount;
-          document.getElementById('maintenanceCalls').textContent = maintenanceCount;
-          document.getElementById('afterHours').textContent = afterHoursCount;
+          hpBanner.classList.remove('visible');
         }
 
-        document.getElementById('leadCount').textContent = total + ' total';
-        const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        document.getElementById('lastUpdated').textContent = 'Updated ' + now;
+        const isFirstLoad = prevCount === 0;
+        setFitValue('totalValue', '$' + housingValue.toLocaleString('en-US', { minimumFractionDigits: 2 }));
 
-        const tbody = document.getElementById('leadsBody');
+        if (isFirstLoad) {
+          countUp(document.getElementById('leasingLeads'),     leasingCount,     '', '', 0);
+          countUp(document.getElementById('maintenanceCalls'), maintenanceCount, '', '', 0);
+          countUp(document.getElementById('afterHours'),       afterHoursCount,  '', '', 0);
+        } else {
+          document.getElementById('leasingLeads').textContent     = leasingCount;
+          document.getElementById('maintenanceCalls').textContent = maintenanceCount;
+          document.getElementById('afterHours').textContent       = afterHoursCount;
+        }
+
+        document.getElementById('leadCount').textContent   = total + ' total';
+        document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const tbody  = document.getElementById('leadsBody');
         if (leads.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><p>No leads yet — waiting for Vapi...</p></div></td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>No leads yet — waiting for Vapi...</p></div></td></tr>';
         } else {
           const isNew = total > prevCount;
           tbody.innerHTML = leads.map((l, i) => {
             const t = (l.interest_type || '').toLowerCase();
             let badgeClass = 'badge-housing';
-            if (t.includes('maintenance')) badgeClass = 'badge-maintenance';
-            else if (t.includes('emergency'))  badgeClass = 'badge-emergency';
+            if (t.includes('emergency'))                         badgeClass = 'badge-emergency';
+            else if (t.includes('maintenance'))                  badgeClass = 'badge-maintenance';
             else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
-            const rowClass = (isNew && i === 0) ? 'new-row' : '';
-            const notes = l.notes || '—';
+
+            const priority     = parseInt(l.priority_level) || 0;
+            const hpBadge      = priority > 7 ? '<span class="priority-badge">P' + priority + '</span>' : '';
+            const rowClass     = (isNew && i === 0) ? 'new-row' : '';
+            const notes        = l.notes || '—';
+            const address      = l.property_address || '—';
+            const ts           = l.created_at
+              ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '—';
+
             return '<tr class="' + rowClass + '">' +
-              '<td class="name-cell" title="' + l.customer_name + '">' + l.customer_name + '</td>' +
-              '<td class="phone-cell">' + l.customer_phone + '</td>' +
-              '<td><span class="badge ' + badgeClass + '" title="' + l.interest_type + '">' + l.interest_type + '</span></td>' +
+              '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + hpBadge + '</td>' +
+              '<td class="phone-cell">' + (l.customer_phone || '') + '</td>' +
+              '<td><span class="badge ' + badgeClass + '" title="' + (l.interest_type || '') + '">' + (l.interest_type || '') + '</span></td>' +
+              '<td class="addr-cell" title="' + address + '">' + address + '</td>' +
               '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
-              '<td class="ts">' + (l.created_at ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—') + '</td>' +
+              '<td class="ts">' + ts + '</td>' +
             '</tr>';
           }).join('');
         }
@@ -454,58 +483,63 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// --- Dummy function for Cannon's Make.com webhook (URL to be added later) ---
 function sendToMakeCom(data) {
   console.log("Data sent to Cannon's Webhook", data);
 }
 
-// --- Vapi Lead Intake Webhook ---
 app.post('/vapi-webhook', async (req, res) => {
-  const msg = req.body.message;
+  const msg     = req.body.message;
   const msgType = msg?.type;
 
   console.log('Vapi event received:', msgType || 'direct');
 
-  let customer_name, customer_phone, interest_type, notes;
+  let customer_name, customer_phone, interest_type, notes, priority_level, property_address;
 
-  // ── Method 1: End-of-call-report with structured data (most reliable) ──
+  // ── Primary: end-of-call-report → structuredData ──
   if (msgType === 'end-of-call-report') {
     const structured = msg?.analysis?.structuredData;
     if (structured?.customer_name && structured?.customer_phone && structured?.interest_type) {
-      customer_name = structured.customer_name;
-      customer_phone = structured.customer_phone;
-      interest_type  = structured.interest_type;
-      notes          = structured.notes || '';
-      console.log('Lead from structured data:', { customer_name, customer_phone, interest_type, notes });
+      customer_name    = structured.customer_name;
+      customer_phone   = structured.customer_phone;
+      interest_type    = structured.interest_type;
+      notes            = structured.notes            || '';
+      priority_level   = structured.priority_level;
+      property_address = structured.property_address || '';
+      console.log('Lead from structuredData:', { customer_name, customer_phone, interest_type, priority_level, property_address });
     } else {
-      console.log('End-of-call-report received but no structured data yet.');
+      console.log('end-of-call-report: no structuredData present.');
       return res.status(200).json({ received: true });
     }
 
-  // ── Method 2: Tool call ──
+  // ── Fallback: tool-calls ──
   } else if (msgType === 'tool-calls' && msg.toolCallList) {
-    const toolCall = msg.toolCallList[0];
-    const args = toolCall?.function?.arguments;
+    const args   = msg.toolCallList[0]?.function?.arguments;
     const params = typeof args === 'string' ? JSON.parse(args) : args;
-    customer_name = params?.customer_name;
-    customer_phone = params?.customer_phone;
-    interest_type  = params?.interest_type;
-    notes          = params?.notes || '';
-    console.log('Lead from tool-call:', { customer_name, customer_phone, interest_type, notes });
+    customer_name    = params?.customer_name;
+    customer_phone   = params?.customer_phone;
+    interest_type    = params?.interest_type;
+    notes            = params?.notes            || '';
+    priority_level   = params?.priority_level;
+    property_address = params?.property_address || '';
+    console.log('Lead from tool-calls:', { customer_name, customer_phone, interest_type, priority_level, property_address });
 
   } else if (msgType === 'function-call' && msg.functionCall) {
-    const params = msg.functionCall.parameters;
-    customer_name = params?.customer_name;
-    customer_phone = params?.customer_phone;
-    interest_type  = params?.interest_type;
-    notes          = params?.notes || '';
+    const params     = msg.functionCall.parameters;
+    customer_name    = params?.customer_name;
+    customer_phone   = params?.customer_phone;
+    interest_type    = params?.interest_type;
+    notes            = params?.notes            || '';
+    priority_level   = params?.priority_level;
+    property_address = params?.property_address || '';
 
-  // ── Method 3: Direct POST (manual tests) ──
+  // ── Manual / direct POST ──
   } else if (!msgType) {
-    customer_name = req.body.customer_name;
-    customer_phone = req.body.customer_phone;
-    interest_type  = req.body.interest_type;
-    notes          = req.body.notes || '';
+    customer_name    = req.body.customer_name;
+    customer_phone   = req.body.customer_phone;
+    interest_type    = req.body.interest_type;
+    notes            = req.body.notes            || '';
+    priority_level   = req.body.priority_level;
+    property_address = req.body.property_address || '';
 
   } else {
     return res.status(200).json({ received: true });
@@ -515,7 +549,7 @@ app.post('/vapi-webhook', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
   }
 
-  // Normalize phone to XXX-XXX-XXXX format
+  // Normalize phone → XXX-XXX-XXXX
   const digits = customer_phone.replace(/\D/g, '').replace(/^1(\d{10})$/, '$1');
   if (digits.length === 10) {
     customer_phone = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6);
@@ -523,19 +557,23 @@ app.post('/vapi-webhook', async (req, res) => {
 
   const isEmergency = interest_type.toLowerCase().includes('emergency');
 
-  // Normalize interest type into clean categories
+  // Normalize interest_type
   const t = interest_type.toLowerCase();
   let normalizedType = interest_type;
-  if (isEmergency)                                          normalizedType = 'Emergency';
-  else if (t.includes('maintenance'))                       normalizedType = 'Maintenance Request';
-  else if (t.includes('student') || t.includes('housing')) normalizedType = 'Student Housing';
-  else if (t.includes('residential') || t.includes('rental')) normalizedType = 'Residential Rental';
+  if (isEmergency)                                              normalizedType = 'Emergency';
+  else if (t.includes('maintenance'))                           normalizedType = 'Maintenance Request';
+  else if (t.includes('student') || t.includes('housing'))     normalizedType = 'Student Housing';
+  else if (t.includes('residential') || t.includes('rental'))  normalizedType = 'Residential Rental';
+
+  const normalizedPriority = isEmergency ? 10 : (parseInt(priority_level) || 5);
 
   const leadData = {
     customer_name,
     customer_phone,
-    interest_type: normalizedType,
-    notes: isEmergency ? (notes || 'EMERGENCY — directed to 970-221-2323') : (notes || ''),
+    interest_type:    normalizedType,
+    notes:            isEmergency ? (notes || 'EMERGENCY — directed to 970-221-2323') : notes,
+    priority_level:   normalizedPriority,
+    property_address: property_address || '',
   };
 
   const { error } = await supabase.from('leads').insert([leadData]);
@@ -548,15 +586,6 @@ app.post('/vapi-webhook', async (req, res) => {
   }
 
   return res.status(200).json({ message: 'Lead received', lead: leadData });
-});
-
-// ── Industry Demo Routes ──────────────────────────────────────────────────────
-['property', 'hvac', 'dental', 'salon', 'auto', 'plumbing'].forEach(slug => {
-  app.get(`/demo/${slug}`, (req, res) => {
-    const cfg = DEMOS[slug];
-    if (!cfg) return res.status(404).send('Demo not found');
-    res.send(buildDashboard(cfg));
-  });
 });
 
 app.listen(PORT, () => {
