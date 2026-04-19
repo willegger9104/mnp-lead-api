@@ -10,6 +10,33 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+const twilio = require('twilio');
+const twilioClient = (process.env.TWILIO_SID && process.env.TWILIO_TOKEN)
+  ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
+  : null;
+
+async function sendEmergencyAlert(lead) {
+  if (!twilioClient || !process.env.ALERT_PHONE || !process.env.TWILIO_FROM) {
+    console.log('[alert] Twilio not configured — skipping emergency SMS');
+    return;
+  }
+  try {
+    const body =
+      `🚨 EMERGENCY LEAD — ${lead.customer_name}\n` +
+      `Phone: ${lead.customer_phone}\n` +
+      `Address: ${lead.property_address || 'not provided'}\n` +
+      `Notes: ${lead.notes || 'none'}`;
+    await twilioClient.messages.create({
+      body,
+      from: process.env.TWILIO_FROM,
+      to: process.env.ALERT_PHONE,
+    });
+    console.log('[alert] Emergency SMS dispatched to', process.env.ALERT_PHONE);
+  } catch (e) {
+    console.error('[alert] Twilio send failed:', e.message);
+  }
+}
+
 app.use(express.json());
 
 app.get('/api/leads', async (req, res) => {
@@ -578,6 +605,11 @@ app.post('/vapi-webhook', async (req, res) => {
 
   const { error } = await supabase.from('leads').insert([leadData]);
   if (error) console.error('Supabase insert error:', error.message);
+
+  // 🚨 Fire SMS alert on true emergencies (priority 10)
+  if (leadData.priority_level === 10) {
+    sendEmergencyAlert(leadData); // fire-and-forget, don't block the response
+  }
 
   sendToMakeCom(leadData);
 
