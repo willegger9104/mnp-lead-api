@@ -144,47 +144,56 @@ app.get('/', (req, res) => {
     .hp-banner strong { color: #ef5350; }
     @keyframes hpPulse { 0%,100%{border-color:rgba(244,67,54,0.4)} 50%{border-color:rgba(244,67,54,0.7)} }
 
-    /* ── Priority Badge (per-row) ── */
-    .priority-badge {
-      display: inline-block;
-      background: rgba(183,28,28,0.3);
-      border: 1px solid rgba(244,67,54,0.45);
-      color: #ef5350;
-      border-radius: 999px;
-      font-size: 0.6rem;
-      font-weight: 800;
-      padding: 1px 6px;
-      margin-left: 6px;
-      vertical-align: middle;
-      letter-spacing: 0.3px;
+    /* ── Row-level Priority Stripe (CRM-grade) ── */
+    tbody tr td:first-child { border-left: 3px solid transparent; padding-left: 13px; }
+    tbody tr.row-emergency td:first-child {
+      border-left-color: #ef5350;
+      box-shadow: inset 4px 0 14px -4px rgba(239,83,80,0.45);
+    }
+    tbody tr.row-urgent td:first-child {
+      border-left-color: #d4af37;
+      box-shadow: inset 4px 0 14px -4px rgba(212,175,55,0.30);
     }
 
-    /* ── Status Badges ── */
-    .badge-prequal {
-      background: rgba(76,175,80,0.18);
-      border: 1px solid rgba(76,175,80,0.45);
-      color: #81c784;
+    /* ── Status Badges (one per row, mutually exclusive) ── */
+    .badge-prequal, .badge-pending, .badge-emergency-status, .badge-service {
+      display: inline-block;
       padding: 3px 9px;
       border-radius: 999px;
       font-size: 0.62rem;
       font-weight: 800;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      display: inline-block;
       white-space: nowrap;
+      border-width: 1px;
+      border-style: solid;
+    }
+    .badge-prequal {
+      background: rgba(76,175,80,0.18);
+      border-color: rgba(76,175,80,0.45);
+      color: #81c784;
     }
     .badge-pending {
       background: rgba(120,140,130,0.10);
-      border: 1px solid rgba(120,140,130,0.30);
+      border-color: rgba(120,140,130,0.30);
       color: #5a8a74;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 0.62rem;
       font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      display: inline-block;
-      white-space: nowrap;
+    }
+    .badge-emergency-status {
+      background: rgba(244,67,54,0.22);
+      border-color: rgba(244,67,54,0.55);
+      color: #ef5350;
+      animation: pulseEmergency 2.5s ease-in-out infinite;
+    }
+    @keyframes pulseEmergency {
+      0%, 100% { border-color: rgba(244,67,54,0.55); box-shadow: none; }
+      50%      { border-color: rgba(244,67,54,0.9);  box-shadow: 0 0 10px rgba(244,67,54,0.35); }
+    }
+    .badge-service {
+      background: rgba(122,184,154,0.10);
+      border-color: rgba(122,184,154,0.30);
+      color: #7ab89a;
+      font-weight: 700;
     }
 
     /* ── Prequal Filter Toggle ── */
@@ -552,20 +561,32 @@ app.get('/', (req, res) => {
         else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
 
         const priority   = parseInt(l.priority_level) || 0;
-        const hpBadge    = priority > 7 ? '<span class="priority-badge">P' + priority + '</span>' : '';
-        const rowClass   = (isNew && i === 0 && !showPrequalOnly) ? 'new-row' : '';
         const notes      = l.notes || '—';
         const address    = l.property_address || '—';
         const ts         = l.created_at
           ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
           : '—';
 
-        const statusBadge = l.is_prequalified === true
-          ? '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified</span>'
-          : '<span class="badge-pending">Unscreened</span>';
+        // Row class — colored left-edge stripe for visual priority
+        const rowClasses = [];
+        if (isNew && i === 0 && !showPrequalOnly) rowClasses.push('new-row');
+        if (t.includes('emergency') || priority >= 10)      rowClasses.push('row-emergency');
+        else if (priority >= 8)                              rowClasses.push('row-urgent');
 
-        return '<tr class="' + rowClass + '">' +
-          '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + hpBadge + '</td>' +
+        // Status badge — mutually exclusive, every row gets one
+        let statusBadge;
+        if (t.includes('emergency')) {
+          statusBadge = '<span class="badge-emergency-status" title="Routed to emergency line — immediate dispatch required">🚨 Emergency</span>';
+        } else if (t.includes('maintenance')) {
+          statusBadge = '<span class="badge-service" title="Service ticket — schedule technician">Service</span>';
+        } else if (l.is_prequalified === true) {
+          statusBadge = '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified</span>';
+        } else {
+          statusBadge = '<span class="badge-pending">Unscreened</span>';
+        }
+
+        return '<tr class="' + rowClasses.join(' ') + '">' +
+          '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + '</td>' +
           '<td class="phone-cell">' + (l.customer_phone || '') + '</td>' +
           '<td><span class="badge ' + badgeClass + '" title="' + (l.interest_type || '') + '">' + (l.interest_type || '') + '</span></td>' +
           '<td>' + statusBadge + '</td>' +
