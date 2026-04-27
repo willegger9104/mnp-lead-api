@@ -1,6 +1,10 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const fs     = require('fs');
+const path   = require('path');
+const axios  = require('axios');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,7 +29,8 @@ try {
 
 async function sendEmergencyAlert(lead) {
   if (!twilioClient || !process.env.ALERT_PHONE || !process.env.TWILIO_FROM) {
-    console.log('[alert] Twilio not configured — skipping emergency SMS');
+    console.log('[alert] Twilio not configured — triggering Make.com fallback.');
+    await fireEmergencyFallback(lead, 'Twilio not configured');
     return;
   }
   try {
@@ -42,21 +47,195 @@ async function sendEmergencyAlert(lead) {
     console.log('[alert] Emergency SMS dispatched to', process.env.ALERT_PHONE);
   } catch (e) {
     console.error('[alert] Twilio send failed:', e.message);
+    await fireEmergencyFallback(lead, e.message);
   }
 }
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+}));
 
-app.get('/api/leads', async (req, res) => {
+// ── Vapi webhook signature validation (L-3) ──────────────────────────────────
+function validateVapiSignature(req) {
+  const secret = process.env.VAPI_WEBHOOK_SECRET;
+  if (!secret) return true; // no secret set — allow (configure in prod)
+  const sig = req.headers['x-vapi-signature'];
+  if (!sig) return false;
+  const expected = crypto.createHmac('sha256', secret)
+    .update(req.rawBody || '')
+    .digest('hex');
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(sig,      'utf8'),
+      Buffer.from(expected, 'utf8')
+    );
+  } catch {
+    return false; // length mismatch = tampered or wrong secret
+  }
+}
+
+// ── Emergency SMS fallback → Make.com (S-2) ──────────────────────────────────
+async function fireEmergencyFallback(lead, reason) {
+  const url = process.env.MAKE_EMERGENCY_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+  if (!url) {
+    console.error('[alert] No fallback URL configured — emergency alert completely undelivered!');
+    return;
+  }
+  try {
+    await axios.post(url, {
+      alert_type:     'emergency_sms_failed',
+      failure_reason: reason,
+      customer_name:  lead.customer_name,
+      customer_phone: lead.customer_phone,
+      notes:          lead.notes,
+      priority_level: lead.priority_level,
+    }, { timeout: 5000 });
+    console.log('[alert] Emergency fallback webhook fired to Make.com.');
+  } catch (e) {
+    console.error('[alert] Emergency fallback webhook also failed:', e.message);
+  }
+}
+
+// ── Auth middleware ───────────────────────────────────────────────────────────
+function requireApiKey(req, res, next) {
+  const key = req.headers['x-api-key'] || req.query.api_key;
+  if (process.env.DASHBOARD_API_KEY && key === process.env.DASHBOARD_API_KEY) {
+    return next();
+  }
+  const isHtml = req.accepts('html') && !req.headers['x-api-key'];
+  if (isHtml) return res.status(401).send('401 Unauthorized — provide a valid api_key query parameter.');
+  return res.status(401).json({ error: 'Unauthorized' });
+}
+
+// ── Recovery log (last-resort local fallback) ──────────────────────────────────
+async function writeRecoveryLog(leadData) {
+  const logPath = path.join(__dirname, 'recovery_log.json');
+  let existing = [];
+  try {
+    existing = JSON.parse(fs.readFileSync(logPath, 'utf8'));
+  } catch (_) {}
+  existing.push({ ...leadData, recovery_at: new Date().toISOString() });
+  fs.writeFileSync(logPath, JSON.stringify(existing, null, 2));
+  console.error('[recovery] Lead written to recovery_log.json — all DB paths failed.');
+}
+
+// ── Supabase error_logs fallback ───────────────────────────────────────────────
+async function logToSupabaseErrorTable(leadData, insertError) {
+  try {
+    const { error } = await supabase.from('error_logs').insert([{
+      raw_lead:      JSON.stringify(leadData),
+      error_message: insertError.message,
+      logged_at:     new Date().toISOString(),
+    }]);
+    if (error) {
+      console.error('[error_log] error_logs insert failed:', error.message);
+      return false;
+    }
+    console.log('[error_log] Lead saved to error_logs table.');
+    return true;
+  } catch (e) {
+    console.error('[error_log] Unexpected error:', e.message);
+    return false;
+  }
+}
+
+// ── Weighted lead scoring (Urgency 0.4 · Intent 0.4 · Geo 0.2) ───────────────
+function scoreLeadByTranscript(leadData, transcript) {
+  const text = ((transcript || '') + ' ' + (leadData.notes || '')).toLowerCase();
+
+  const urgencyKeywords = [
+    'emergency','urgent','asap','immediately','tonight','right now','flooding','flood',
+    'fire','smoke','burst pipe','no heat','no water','no power','broken','leaking',
+    'overflow','dangerous','critical','help',
+  ];
+  const intentKeywords = [
+    'ready to move','want to apply','interested in renting','move in','income','deposit',
+    'lease','sign','tour','showing','available unit','apply','prequalify','pre-qualify',
+    'looking to rent','when can i',
+  ];
+  const geoKeywords = [
+    'fort collins','loveland','greeley','windsor','timnath','wellington','bellvue',
+    'laporte','northern colorado','noco','nearby','local',
+  ];
+
+  const urgencyScore = Math.min(urgencyKeywords.filter(k => text.includes(k)).length / 3, 1);
+  const intentScore  = Math.min(intentKeywords.filter(k  => text.includes(k)).length / 3, 1);
+  const geoScore     = Math.min(geoKeywords.filter(k     => text.includes(k)).length / 2, 1);
+
+  const composite = (urgencyScore * 0.4) + (intentScore * 0.4) + (geoScore * 0.2);
+  return {
+    weighted_score: Math.round(composite * 10 * 10) / 10,
+    urgency_score:  Math.round(urgencyScore * 10) / 10,
+    intent_score:   Math.round(intentScore  * 10) / 10,
+    geo_score:      Math.round(geoScore     * 10) / 10,
+  };
+}
+
+// ── Repeat caller check (72-hour window) ─────────────────────────────────────
+async function checkRepeatCaller(phone) {
+  const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('leads')
+    .select('created_at, interest_type')
+    .eq('customer_phone', phone)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+// ── LLM founder brief (Haiku · degrades gracefully if key absent) ─────────────
+async function generateFounderBrief(leadData, transcript, repeatRecord, scoring) {
+  const repeatNote = repeatRecord
+    ? `Repeat caller — previous ${repeatRecord.interest_type} call on ${new Date(repeatRecord.created_at).toLocaleDateString('en-US', { timeZone: 'America/Denver' })}.`
+    : 'First contact.';
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return `${leadData.interest_type} inquiry from ${leadData.customer_name || 'unknown caller'}. ` +
+      `Priority ${leadData.priority_level}/10, weighted score ${scoring.weighted_score}/10. ${repeatNote}`;
+  }
+
+  try {
+    const prompt = [
+      'Write a 2-sentence founder brief for a property management lead. Be direct and highlight the single most actionable detail.',
+      `Type: ${leadData.interest_type}`,
+      `Priority: ${leadData.priority_level}/10 (weighted: ${scoring.weighted_score}/10)`,
+      `Prequalified: ${leadData.is_prequalified}`,
+      repeatNote,
+      `Notes: ${leadData.notes || 'none'}`,
+      transcript ? `Transcript excerpt: ${transcript.slice(0, 600)}` : '',
+    ].filter(Boolean).join('\n');
+
+    const { data } = await axios.post('https://api.anthropic.com/v1/messages', {
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 120,
+      messages:   [{ role: 'user', content: prompt }],
+    }, {
+      headers: {
+        'x-api-key':         process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type':      'application/json',
+      },
+      timeout: 8000,
+    });
+    return data.content[0].text.trim();
+  } catch (e) {
+    console.error('[brief] Generation failed:', e.message);
+    return `${leadData.interest_type} lead, priority ${leadData.priority_level}/10. ${repeatNote}`;
+  }
+}
+
+app.get('/api/leads', requireApiKey, async (req, res) => {
   const { data, error } = await supabase
     .from('leads')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ total: data.length, leads: data });
 });
 
-app.get('/', (req, res) => {
+app.get('/', requireApiKey, (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -553,48 +732,77 @@ app.get('/', (req, res) => {
       }
 
       const isNew = total > prevCount;
-      tbody.innerHTML = visible.map((l, i) => {
-        const t = (l.interest_type || '').toLowerCase();
+      const frag  = document.createDocumentFragment();
+
+      visible.forEach((l, i) => {
+        const t        = (l.interest_type || '').toLowerCase();
+        const priority = parseInt(l.priority_level) || 0;
+        const ts       = l.created_at
+          ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '—';
+
         let badgeClass = 'badge-housing';
         if (t.includes('emergency'))                                 badgeClass = 'badge-emergency';
         else if (t.includes('maintenance'))                          badgeClass = 'badge-maintenance';
         else if (t.includes('residential') || t.includes('rental')) badgeClass = 'badge-residential';
 
-        const priority   = parseInt(l.priority_level) || 0;
-        const notes      = l.notes || '—';
-        const address    = l.property_address || '—';
-        const ts         = l.created_at
-          ? new Date(l.created_at).toLocaleString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-          : '—';
-
-        // Row class — colored left-edge stripe for visual priority
         const rowClasses = [];
-        if (isNew && i === 0 && !showPrequalOnly) rowClasses.push('new-row');
-        if (t.includes('emergency') || priority >= 10)      rowClasses.push('row-emergency');
-        else if (priority >= 8)                              rowClasses.push('row-urgent');
+        if (isNew && i === 0 && !showPrequalOnly)      rowClasses.push('new-row');
+        if (t.includes('emergency') || priority >= 10) rowClasses.push('row-emergency');
+        else if (priority >= 8)                        rowClasses.push('row-urgent');
 
-        // Status badge — mutually exclusive, every row gets one
-        let statusBadge;
+        // Status badge — hardcoded HTML structure only, zero user data
+        let statusBadgeHTML;
         if (t.includes('emergency')) {
-          statusBadge = '<span class="badge-emergency-status" title="Routed to emergency line — immediate dispatch required">🚨 Emergency</span>';
+          statusBadgeHTML = '<span class="badge-emergency-status" title="Routed to emergency line — immediate dispatch required">🚨 Emergency<\/span>';
+        } else if (t.includes('manual triage') || t.includes('triage')) {
+          statusBadgeHTML = '<span class="badge-pending" title="AI extraction failed — manual review required">⚠ Triage<\/span>';
         } else if (t.includes('maintenance')) {
-          statusBadge = '<span class="badge-service" title="Service ticket — schedule technician">Service</span>';
+          statusBadgeHTML = '<span class="badge-service" title="Service ticket — schedule technician">Service<\/span>';
         } else if (l.is_prequalified === true) {
-          statusBadge = '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified</span>';
+          statusBadgeHTML = '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified<\/span>';
         } else {
-          statusBadge = '<span class="badge-pending">Unscreened</span>';
+          statusBadgeHTML = '<span class="badge-pending">Unscreened<\/span>';
         }
 
-        return '<tr class="' + rowClasses.join(' ') + '">' +
-          '<td class="name-cell" title="' + (l.customer_name || '') + '">' + (l.customer_name || '') + '</td>' +
-          '<td class="phone-cell">' + (l.customer_phone || '') + '</td>' +
-          '<td><span class="badge ' + badgeClass + '" title="' + (l.interest_type || '') + '">' + (l.interest_type || '') + '</span></td>' +
-          '<td>' + statusBadge + '</td>' +
-          '<td class="addr-cell" title="' + address + '">' + address + '</td>' +
-          '<td class="notes-cell" title="' + notes + '">' + notes + '</td>' +
-          '<td class="ts">' + ts + '</td>' +
-        '</tr>';
-      }).join('');
+        const tr = document.createElement('tr');
+        if (rowClasses.length) tr.className = rowClasses.join(' ');
+
+        function cell(cls, value, titleVal) {
+          const td = document.createElement('td');
+          if (cls) td.className = cls;
+          td.textContent = value || '—';
+          if (titleVal !== undefined) td.title = String(titleVal || value || '');
+          return td;
+        }
+
+        tr.appendChild(cell('name-cell',  l.customer_name,     l.customer_name));
+        tr.appendChild(cell('phone-cell', l.customer_phone));
+
+        const tdInt  = document.createElement('td');
+        const badge  = document.createElement('span');
+        badge.className   = 'badge ' + badgeClass;
+        badge.textContent = l.interest_type || '';
+        badge.title       = l.interest_type || '';
+        tdInt.appendChild(badge);
+        tr.appendChild(tdInt);
+
+        const tdStatus = document.createElement('td');
+        tdStatus.innerHTML = statusBadgeHTML; // safe: hardcoded strings only
+        tr.appendChild(tdStatus);
+
+        const notesVal = l.notes || '—';
+        const tdNotes  = cell('notes-cell', notesVal, notesVal);
+        if (notesVal.startsWith('[REPEAT')) tdNotes.style.color = '#d4af37';
+        tr.appendChild(cell('addr-cell', l.property_address, l.property_address));
+        tr.appendChild(tdNotes);
+        tr.appendChild(cell('ts', ts));
+
+        frag.appendChild(tr);
+      });
+
+      tbody.innerHTML = '';
+      tbody.appendChild(frag);
     }
 
     async function fetchLeads() {
@@ -673,11 +881,25 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-function sendToMakeCom(data) {
-  console.log("Data sent to Cannon's Webhook", data);
+async function callMakeWebhook(leadData, extraFields = {}) {
+  if (!process.env.MAKE_WEBHOOK_URL) {
+    console.log('[make] MAKE_WEBHOOK_URL not configured — skipping.');
+    return;
+  }
+  try {
+    await axios.post(process.env.MAKE_WEBHOOK_URL, { ...leadData, ...extraFields }, { timeout: 5000 });
+    console.log('[make] Webhook fired for interest_type:', leadData.interest_type);
+  } catch (e) {
+    console.error('[make] Webhook POST failed:', e.message);
+  }
 }
 
 app.post('/vapi-webhook', async (req, res) => {
+  if (!validateVapiSignature(req)) {
+    console.warn('[security] Rejected unsigned/invalid POST to /vapi-webhook');
+    return res.status(401).json({ error: 'Invalid webhook signature.' });
+  }
+
   const msg     = req.body.message;
   const msgType = msg?.type;
 
@@ -685,6 +907,7 @@ app.post('/vapi-webhook', async (req, res) => {
 
   let customer_name, customer_phone, interest_type, notes, priority_level, property_address,
       is_prequalified, income_verified, move_in_date;
+  let transcript = ''; // populated from end-of-call-report for scoring + triage
 
   // ── Primary: end-of-call-report → structuredData ──
   if (msgType === 'end-of-call-report') {
@@ -699,10 +922,34 @@ app.post('/vapi-webhook', async (req, res) => {
       is_prequalified  = structured.is_prequalified;
       income_verified  = structured.income_verified  || '';
       move_in_date     = structured.move_in_date     || '';
-      console.log('Lead from structuredData:', { customer_name, customer_phone, interest_type, priority_level, property_address, is_prequalified });
+      transcript       = msg?.transcript             || '';
+      console.log('Lead from structuredData:', { interest_type, priority_level, is_prequalified });
     } else {
-      console.log('end-of-call-report: no structuredData present.');
-      return res.status(200).json({ received: true });
+      // S-3 fix: save manual triage record instead of silently dropping the call
+      const rawTranscript  = msg?.transcript             || '';
+      const callerPhone    = msg?.call?.customer?.number || '';
+      const callSummary    = msg?.analysis?.summary      || '';
+      console.log('[triage] end-of-call-report missing structuredData — saving manual_triage record.');
+      if (rawTranscript || callerPhone) {
+        const triageNote = callSummary || (rawTranscript ? rawTranscript.slice(0, 600) : 'No transcript available.');
+        try {
+          const { error: triageErr } = await supabase.from('leads').insert([{
+            customer_name:    'Manual Triage Required',
+            customer_phone:   callerPhone,
+            interest_type:    'Manual Triage',
+            notes:            triageNote,
+            priority_level:   7,
+            property_address: '',
+            is_prequalified:  false,
+            income_verified:  '',
+            move_in_date:     '',
+          }]);
+          if (triageErr) console.error('[triage] Supabase insert failed:', triageErr.message);
+        } catch (e) {
+          console.error('[triage] Supabase insert error:', e.message);
+        }
+      }
+      return res.status(200).json({ received: true, status: 'manual_triage_saved' });
     }
 
   // ── Fallback: tool-calls ──
@@ -718,7 +965,7 @@ app.post('/vapi-webhook', async (req, res) => {
     is_prequalified  = params?.is_prequalified;
     income_verified  = params?.income_verified  || '';
     move_in_date     = params?.move_in_date     || '';
-    console.log('Lead from tool-calls:', { customer_name, customer_phone, interest_type, priority_level, property_address, is_prequalified });
+    console.log('Lead from tool-calls:', { interest_type, priority_level, is_prequalified });
 
   } else if (msgType === 'function-call' && msg.functionCall) {
     const params     = msg.functionCall.parameters;
@@ -752,11 +999,15 @@ app.post('/vapi-webhook', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: customer_name, customer_phone, interest_type' });
   }
 
-  // Normalize phone → XXX-XXX-XXXX
+  // Normalize + strictly validate phone → XXX-XXX-XXXX (S-5)
   const digits = customer_phone.replace(/\D/g, '').replace(/^1(\d{10})$/, '$1');
-  if (digits.length === 10) {
-    customer_phone = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6);
+  if (digits.length !== 10) {
+    return res.status(400).json({
+      error: `Invalid phone number — must normalize to 10 digits.`,
+      received: customer_phone,
+    });
   }
+  customer_phone = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6);
 
   const isEmergency = interest_type.toLowerCase().includes('emergency');
 
@@ -782,15 +1033,39 @@ app.post('/vapi-webhook', async (req, res) => {
     move_in_date:     move_in_date    || '',
   };
 
-  const { error } = await supabase.from('leads').insert([leadData]);
-  if (error) console.error('Supabase insert error:', error.message);
+  // ── Enrichment pipeline ───────────────────────────────────────────────────────
+  const repeatRecord = await checkRepeatCaller(leadData.customer_phone);
+  if (repeatRecord) {
+    const prevDate = new Date(repeatRecord.created_at)
+      .toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'numeric', day: 'numeric' });
+    leadData.notes = `[REPEAT — prev ${repeatRecord.interest_type} on ${prevDate}] ${leadData.notes}`;
+  }
 
-  // 🚨 Fire SMS alert on true emergencies (priority 10)
+  const scoring = scoreLeadByTranscript(leadData, transcript);
+  if (!isEmergency) {
+    leadData.priority_level = Math.max(leadData.priority_level, Math.round(scoring.weighted_score));
+  }
+
+  const founderBrief = await generateFounderBrief(leadData, transcript, repeatRecord, scoring);
+
+  const { error } = await supabase.from('leads').insert([leadData]);
+  if (error) {
+    console.error('Supabase insert error:', error.message);
+    const savedToErrorLog = await logToSupabaseErrorTable(leadData, error);
+    if (savedToErrorLog) {
+      callMakeWebhook(leadData, { founder_brief: founderBrief, scoring }); // persisted in error_logs
+    } else {
+      await writeRecoveryLog(leadData); // last resort: local file
+    }
+    return res.status(200).json({ received: true, warning: 'Primary DB unavailable — lead queued in fallback.' });
+  }
+
+  // 🚨 Fire SMS alert on true emergencies (priority 10) — only after confirmed DB write
   if (leadData.priority_level === 10) {
     sendEmergencyAlert(leadData); // fire-and-forget, don't block the response
   }
 
-  sendToMakeCom(leadData);
+  callMakeWebhook(leadData, { founder_brief: founderBrief, scoring }); // confirmed in primary DB
 
   if (isEmergency) {
     return res.status(200).json({ message: 'Directing to Emergency Line: 970-221-2323' });
