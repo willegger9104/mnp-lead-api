@@ -586,6 +586,7 @@ app.get('/', requireApiKey, (req, res) => {
   </footer>
 
   <script>
+    const apiKey  = new URLSearchParams(window.location.search).get('api_key') || '';
     let prevCount = 0;
     let donutChart, barChart;
     let showPrequalOnly = false;
@@ -807,7 +808,7 @@ app.get('/', requireApiKey, (req, res) => {
 
     async function fetchLeads() {
       try {
-        const res = await fetch('/api/leads');
+        const res = await fetch('/api/leads?api_key=' + encodeURIComponent(apiKey));
         const data = await res.json();
         const { total, leads } = data;
         lastLeads = leads;
