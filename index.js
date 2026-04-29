@@ -56,23 +56,12 @@ app.use(express.json({
   verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
 }));
 
-// ── Vapi webhook signature validation (L-3) ──────────────────────────────────
+// ── Vapi webhook secret validation (L-3) ─────────────────────────────────────
+// Vapi sends the raw secret in the x-vapi-secret header — not an HMAC signature.
 function validateVapiSignature(req) {
   const secret = process.env.VAPI_WEBHOOK_SECRET;
-  if (!secret) return true; // no secret set — allow (configure in prod)
-  const sig = req.headers['x-vapi-signature'];
-  if (!sig) return false;
-  const expected = crypto.createHmac('sha256', secret)
-    .update(req.rawBody || '')
-    .digest('hex');
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(sig,      'utf8'),
-      Buffer.from(expected, 'utf8')
-    );
-  } catch {
-    return false; // length mismatch = tampered or wrong secret
-  }
+  if (!secret) return true;
+  return req.headers['x-vapi-secret'] === secret;
 }
 
 // ── Emergency SMS fallback → Make.com (S-2) ──────────────────────────────────
