@@ -47,6 +47,7 @@ async function sendEmergencyAlert(lead) {
     console.log('[alert] Emergency SMS dispatched to', process.env.ALERT_PHONE);
   } catch (e) {
     console.error('[alert] Twilio send failed:', e.message);
+    console.warn('[alert] Twilio error — triggering Make.com fallback.');
     await fireEmergencyFallback(lead, e.message);
   }
 }
@@ -76,6 +77,7 @@ function validateVapiSignature(req) {
 
 // ── Emergency SMS fallback → Make.com (S-2) ──────────────────────────────────
 async function fireEmergencyFallback(lead, reason) {
+  console.warn('[alert] SMS fallback triggered — reason:', reason, '| phone:', lead.customer_phone);
   const url = process.env.MAKE_EMERGENCY_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
   if (!url) {
     console.error('[alert] No fallback URL configured — emergency alert completely undelivered!');
@@ -109,14 +111,16 @@ function requireApiKey(req, res, next) {
 
 // ── Recovery log (last-resort local fallback) ──────────────────────────────────
 async function writeRecoveryLog(leadData) {
-  const logPath = path.join(__dirname, 'recovery_log.json');
+  const dataDir = path.join(__dirname, 'data');
+  const logPath = path.join(dataDir, 'recovery_log.json');
   let existing = [];
   try {
     existing = JSON.parse(fs.readFileSync(logPath, 'utf8'));
   } catch (_) {}
+  fs.mkdirSync(dataDir, { recursive: true });
   existing.push({ ...leadData, recovery_at: new Date().toISOString() });
   fs.writeFileSync(logPath, JSON.stringify(existing, null, 2));
-  console.error('[recovery] Lead written to recovery_log.json — all DB paths failed.');
+  console.error('[recovery] Lead written to data/recovery_log.json — all DB paths failed.');
 }
 
 // ── Supabase error_logs fallback ───────────────────────────────────────────────
@@ -177,6 +181,19 @@ async function checkRepeatCaller(phone) {
   const { data } = await supabase
     .from('leads')
     .select('created_at, interest_type')
+    .eq('customer_phone', phone)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+// ── Dedup check (15-minute window, S-4) ──────────────────────────────────────
+async function findRecentDuplicate(phone) {
+  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('leads')
+    .select('id, notes, priority_level, is_prequalified, income_verified, move_in_date, property_address, interest_type')
     .eq('customer_phone', phone)
     .gte('created_at', since)
     .order('created_at', { ascending: false })
@@ -625,6 +642,10 @@ app.get('/', requireApiKey, (req, res) => {
       return '$' + Math.round(n).toLocaleString('en-US');
     }
 
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     function countUp(el, target, prefix, suffix, decimals) {
       const duration = 800;
       const start = performance.now();
@@ -728,7 +749,18 @@ app.get('/', requireApiKey, (req, res) => {
         const msg = showPrequalOnly
           ? 'No prequalified leads yet — toggle off to see all.'
           : 'No leads yet — waiting for Vapi...';
-        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>' + msg + '</p></div></td></tr>';
+        const emptyRow  = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 7;
+        const emptyDiv  = document.createElement('div');  emptyDiv.className  = 'empty-state';
+        const emptyIcon = document.createElement('div');  emptyIcon.className = 'empty-icon';  emptyIcon.textContent = '📋';
+        const emptyP    = document.createElement('p');    emptyP.textContent  = msg;
+        emptyDiv.appendChild(emptyIcon);
+        emptyDiv.appendChild(emptyP);
+        emptyCell.appendChild(emptyDiv);
+        emptyRow.appendChild(emptyCell);
+        tbody.innerHTML = '';
+        tbody.appendChild(emptyRow);
         return;
       }
 
@@ -752,20 +784,6 @@ app.get('/', requireApiKey, (req, res) => {
         if (t.includes('emergency') || priority >= 10) rowClasses.push('row-emergency');
         else if (priority >= 8)                        rowClasses.push('row-urgent');
 
-        // Status badge — hardcoded HTML structure only, zero user data
-        let statusBadgeHTML;
-        if (t.includes('emergency')) {
-          statusBadgeHTML = '<span class="badge-emergency-status" title="Routed to emergency line — immediate dispatch required">🚨 Emergency<\/span>';
-        } else if (t.includes('manual triage') || t.includes('triage')) {
-          statusBadgeHTML = '<span class="badge-pending" title="AI extraction failed — manual review required">⚠ Triage<\/span>';
-        } else if (t.includes('maintenance')) {
-          statusBadgeHTML = '<span class="badge-service" title="Service ticket — schedule technician">Service<\/span>';
-        } else if (l.is_prequalified === true) {
-          statusBadgeHTML = '<span class="badge-prequal" title="Income verified · move-in confirmed · pet/smoking compliant">✓ Prequalified<\/span>';
-        } else {
-          statusBadgeHTML = '<span class="badge-pending">Unscreened<\/span>';
-        }
-
         const tr = document.createElement('tr');
         if (rowClasses.length) tr.className = rowClasses.join(' ');
 
@@ -773,7 +791,7 @@ app.get('/', requireApiKey, (req, res) => {
           const td = document.createElement('td');
           if (cls) td.className = cls;
           td.textContent = value || '—';
-          if (titleVal !== undefined) td.title = String(titleVal || value || '');
+          if (titleVal !== undefined) td.title = escapeHtml(String(titleVal || value || ''));
           return td;
         }
 
@@ -784,12 +802,29 @@ app.get('/', requireApiKey, (req, res) => {
         const badge  = document.createElement('span');
         badge.className   = 'badge ' + badgeClass;
         badge.textContent = l.interest_type || '';
-        badge.title       = l.interest_type || '';
+        badge.title       = escapeHtml(l.interest_type || '');
         tdInt.appendChild(badge);
         tr.appendChild(tdInt);
 
+        // Status badge — DOM construction only, no innerHTML
+        let statusClass, statusTitle, statusText;
+        if (t.includes('emergency')) {
+          statusClass = 'badge-emergency-status'; statusTitle = 'Routed to emergency line — immediate dispatch required'; statusText = '🚨 Emergency';
+        } else if (t.includes('manual triage') || t.includes('triage')) {
+          statusClass = 'badge-pending'; statusTitle = 'AI extraction failed — manual review required'; statusText = '⚠ Triage';
+        } else if (t.includes('maintenance')) {
+          statusClass = 'badge-service'; statusTitle = 'Service ticket — schedule technician'; statusText = 'Service';
+        } else if (l.is_prequalified === true) {
+          statusClass = 'badge-prequal'; statusTitle = 'Income verified · move-in confirmed · pet/smoking compliant'; statusText = '✓ Prequalified';
+        } else {
+          statusClass = 'badge-pending'; statusTitle = ''; statusText = 'Unscreened';
+        }
+        const statusSpan = document.createElement('span');
+        statusSpan.className = statusClass;
+        if (statusTitle) statusSpan.title = statusTitle;
+        statusSpan.textContent = statusText;
         const tdStatus = document.createElement('td');
-        tdStatus.innerHTML = statusBadgeHTML; // safe: hardcoded strings only
+        tdStatus.appendChild(statusSpan);
         tr.appendChild(tdStatus);
 
         const notesVal = l.notes || '—';
@@ -882,6 +917,7 @@ app.get('/', requireApiKey, (req, res) => {
 </html>`);
 });
 
+// ── Make.com webhook (B-2) — fires on every confirmed lead insert or update ───
 async function callMakeWebhook(leadData, extraFields = {}) {
   if (!process.env.MAKE_WEBHOOK_URL) {
     console.log('[make] MAKE_WEBHOOK_URL not configured — skipping.');
@@ -889,7 +925,7 @@ async function callMakeWebhook(leadData, extraFields = {}) {
   }
   try {
     await axios.post(process.env.MAKE_WEBHOOK_URL, { ...leadData, ...extraFields }, { timeout: 5000 });
-    console.log('[make] Webhook fired for interest_type:', leadData.interest_type);
+    console.log('[make] Webhook fired —', leadData.interest_type, '| priority:', leadData.priority_level, '| name:', leadData.customer_name);
   } catch (e) {
     console.error('[make] Webhook POST failed:', e.message);
   }
@@ -945,7 +981,11 @@ app.post('/vapi-webhook', async (req, res) => {
             income_verified:  '',
             move_in_date:     '',
           }]);
-          if (triageErr) console.error('[triage] Supabase insert failed:', triageErr.message);
+          if (triageErr) {
+            console.error('[triage] Supabase insert failed:', triageErr.message);
+          } else {
+            callMakeWebhook({ customer_phone: callerPhone, interest_type: 'Manual Triage', notes: triageNote, priority_level: 7 });
+          }
         } catch (e) {
           console.error('[triage] Supabase insert error:', e.message);
         }
@@ -1048,6 +1088,33 @@ app.post('/vapi-webhook', async (req, res) => {
   }
 
   const founderBrief = await generateFounderBrief(leadData, transcript, repeatRecord, scoring);
+
+  // ── S-4: Dedup — merge into existing row if same phone within 15 min ─────────
+  const duplicate = await findRecentDuplicate(leadData.customer_phone);
+  if (duplicate) {
+    const mergedNotes = (duplicate.notes && leadData.notes && duplicate.notes !== leadData.notes)
+      ? `${duplicate.notes} | ${leadData.notes}`
+      : (leadData.notes || duplicate.notes || '');
+    const merged = {
+      notes:            mergedNotes,
+      priority_level:   Math.max(duplicate.priority_level || 0, leadData.priority_level),
+      is_prequalified:  duplicate.is_prequalified || leadData.is_prequalified,
+      income_verified:  leadData.income_verified  || duplicate.income_verified  || '',
+      move_in_date:     leadData.move_in_date     || duplicate.move_in_date     || '',
+      property_address: leadData.property_address || duplicate.property_address || '',
+      interest_type:    leadData.interest_type    || duplicate.interest_type,
+    };
+    const { error: updateError } = await supabase.from('leads').update(merged).eq('id', duplicate.id);
+    if (!updateError) {
+      console.log('[dedup] Merged into existing lead id', duplicate.id, '— phone:', leadData.customer_phone);
+      const finalLead = { ...leadData, ...merged };
+      if (merged.priority_level === 10) sendEmergencyAlert(finalLead);
+      callMakeWebhook(finalLead, { founder_brief: founderBrief, scoring });
+      if (isEmergency) return res.status(200).json({ message: 'Directing to Emergency Line: 970-221-2323' });
+      return res.status(200).json({ message: 'Lead updated (duplicate merged)', lead: finalLead });
+    }
+    console.error('[dedup] Update failed — falling through to insert:', updateError.message);
+  }
 
   const { error } = await supabase.from('leads').insert([leadData]);
   if (error) {
